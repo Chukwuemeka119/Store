@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, onValue, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
@@ -164,6 +164,11 @@ function handleAddToCart() {
   const item = inventory.find(i => i.name === name);
   if (!item) return;
 
+  if (qty > item.qty) {
+    alert(`Not enough stock. Only ${item.qty} left for "${name}".`);
+    return;
+  }
+
   const total = qty * item.price;
   cart.push({ name, qty, price: item.price, total });
 
@@ -197,6 +202,20 @@ function handlePrint() {
   ).join("");
 
   setText("r-total", cart.reduce((s, i) => s + i.total, 0).toLocaleString());
+
+  // Deduct stock in Firebase now that sale is confirmed
+  cart.forEach(cartItem => {
+    const inv = inventory.find(i => i.name === cartItem.name);
+    if (inv) {
+      update(ref(db, "inventory/" + inv.id), { qty: inv.qty - cartItem.qty });
+    }
+  });
+
+  // Clear cart after printing
+  cart = [];
+  $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
+  setText("subtotal", "0");
+
   window.print();
 }
 
