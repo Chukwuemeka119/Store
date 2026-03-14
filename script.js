@@ -26,8 +26,11 @@ const $  = id => document.getElementById(id);
 const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
 function setText(id, val) { const el = $(id); if (el) el.innerText = val; }
 
-// auth guard
-if (!location.pathname.includes("login.html") && !sessionStorage.getItem("posAuth")) {
+// current page name e.g. "login.html", "index.html"
+const PAGE = location.pathname.split("/").pop() || "index.html";
+
+// auth guard — redirect to login if not authenticated and not already on login page
+if (PAGE !== "login.html" && !sessionStorage.getItem("posAuth")) {
   location.href = "login.html";
 }
 
@@ -36,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadCompany();
   wirePage();
 
+  // Firebase inventory — listen on every page (safe no-ops where elements are absent)
   onValue(ref(db, "inventory"), snapshot => {
     inventory = [];
     const data = snapshot.val() || {};
@@ -52,37 +56,37 @@ function loadCompany() {
 }
 
 function wirePage() {
-  const path = location.pathname;
-
-  if (path.includes("login.html")) {
+  if (PAGE === "login.html") {
     on("login-btn", "click", handleLogin);
     on("password",  "keydown", e => { if (e.key === "Enter") handleLogin(); });
   }
 
-  if (path.includes("index.html") || path === "/" || path.endsWith("/")) {
+  if (PAGE === "index.html" || PAGE === "") {
     on("logout-btn", "click", handleLogout);
   }
 
-  if (path.includes("inventory.html")) {
+  if (PAGE === "inventory.html") {
     on("add-item", "click", handleAddItem);
   }
 
-  if (path.includes("sales.html")) {
+  if (PAGE === "sales.html") {
     on("sell-btn",  "click", handleAddToCart);
     on("print-btn", "click", handlePrint);
   }
 
-  if (path.includes("admin.html")) {
+  if (PAGE === "admin.html") {
     on("create-cashier-btn", "click", handleCreateCashier);
   }
 }
 
+// ── LOGIN ────────────────────────────────────────────────────────────────────
 async function handleLogin() {
   const u = $("username").value.trim();
   const p = $("password").value;
 
   if (!u || !p) { alert("Please enter username and password."); return; }
 
+  // built-in admin
   if (u === "admin" && p === "admin") {
     sessionStorage.setItem("posAuth", "true");
     sessionStorage.setItem("cashier", u);
@@ -90,6 +94,7 @@ async function handleLogin() {
     return;
   }
 
+  // check Firebase cashiers
   try {
     const snapshot = await get(ref(db, "cashiers"));
     const data = snapshot.val() || {};
@@ -106,11 +111,13 @@ async function handleLogin() {
   }
 }
 
+// ── LOGOUT ───────────────────────────────────────────────────────────────────
 function handleLogout() {
   sessionStorage.clear();
   location.href = "login.html";
 }
 
+// ── INVENTORY ────────────────────────────────────────────────────────────────
 function handleAddItem() {
   const name  = $("item-name").value.trim();
   const price = Number($("item-price").value);
@@ -137,11 +144,14 @@ function renderInventoryTable() {
   ).join("");
 }
 
+// ── SALES ────────────────────────────────────────────────────────────────────
 function renderSellDropdown() {
   const sel = $("sell-item");
   if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${i.name}">${i.name} — &#8358;${i.price.toLocaleString()}</option>`).join("");
+    inventory.map(i =>
+      `<option value="${i.name}">${i.name} — &#8358;${i.price.toLocaleString()}</option>`
+    ).join("");
 }
 
 function handleAddToCart() {
@@ -190,6 +200,7 @@ function handlePrint() {
   window.print();
 }
 
+// ── ADMIN ────────────────────────────────────────────────────────────────────
 function handleCreateCashier() {
   const name = $("cashier-name").value.trim();
   const pass = $("cashier-pass").value.trim();
