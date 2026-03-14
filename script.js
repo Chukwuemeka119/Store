@@ -213,10 +213,16 @@ function handlePrint() {
   const grandTotal = cart.reduce((s, i) => s + i.total, 0);
   setText("r-total", grandTotal.toLocaleString());
 
-  // Deduct stock
+  // Deduct stock — remove item entirely if qty hits 0
   cart.forEach(cartItem => {
     const inv = inventory.find(i => i.name === cartItem.name);
-    if (inv) update(ref(db, "inventory/" + inv.id), { qty: inv.qty - cartItem.qty });
+    if (!inv) return;
+    const newQty = inv.qty - cartItem.qty;
+    if (newQty <= 0) {
+      remove(ref(db, "inventory/" + inv.id));
+    } else {
+      update(ref(db, "inventory/" + inv.id), { qty: newQty });
+    }
   });
 
   // Save sale to Firebase history
