@@ -57,10 +57,13 @@
 
 <!-- ── HISTORY TAB ── -->
 <div class="tab-panel" id="tab-history">
-  <div class="tab-bar" style="margin-bottom:20px">
-    <button class="period-btn active" data-period="daily">Daily</button>
-    <button class="period-btn" data-period="weekly">Weekly</button>
-    <button class="period-btn" data-period="monthly">Monthly</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div class="tab-bar" style="margin-bottom:0">
+      <button class="period-btn active" data-period="daily">Daily</button>
+      <button class="period-btn" data-period="weekly">Weekly</button>
+      <button class="period-btn" data-period="monthly">Monthly</button>
+    </div>
+    <button class="btn btn-danger" id="clear-history-btn">Clear All History</button>
   </div>
   <div id="history-content">
     <div style="color:var(--muted);text-align:center;padding:40px">Loading history...</div>

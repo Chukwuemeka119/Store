@@ -333,6 +333,11 @@ function wireAdminHistory() {
     renderHistory();
   });
 
+  on("clear-history-btn", "click", () => {
+    if (!confirm("Are you sure you want to clear all sales history? This cannot be undone.")) return;
+    remove(ref(db, "sales"));
+  });
+
   document.querySelectorAll(".period-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
