@@ -12,212 +12,77 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const db  = getDatabase(app);
 
 const STORE_NAME    = "Michael POS Store";
 const STORE_ADDRESS = "Abuja Nigeria";
 const STORE_PHONE   = "08012345678";
 
 let inventory = [];
-let cart = [];
+let cart      = [];
 
-// ── Auth guard ───────────────────────────────────────────────────────────────
-if (!location.href.includes("login.html")) {
-  if (!sessionStorage.getItem("posAuth")) {
-    location.href = "login.html";
-  }
+// helpers
+const $  = id => document.getElementById(id);
+const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+function setText(id, val) { const el = $(id); if (el) el.innerText = val; }
+
+// auth guard
+if (!location.pathname.includes("login.html") && !sessionStorage.getItem("posAuth")) {
+  location.href = "login.html";
 }
 
-// ── DOM ready ────────────────────────────────────────────────────────────────
+// boot
 document.addEventListener("DOMContentLoaded", () => {
   loadCompany();
-  wireInventoryPage();
-  wireSalesPage();
-  wireAdminPage();
-  wireLoginPage();
-  wireDashboard();
+  wirePage();
 
-  // Listen to Firebase inventory changes on any page that needs it
   onValue(ref(db, "inventory"), snapshot => {
     inventory = [];
-    const data = snapshot.val();
-    if (data) {
-      for (let id in data) {
-        inventory.push({ id, ...data[id] });
-      }
-    }
-    loadInventoryTable();
-    loadSellList();
+    const data = snapshot.val() || {};
+    for (const id in data) inventory.push({ id, ...data[id] });
+    renderInventoryTable();
+    renderSellDropdown();
   });
 });
 
-// ── Company info ─────────────────────────────────────────────────────────────
 function loadCompany() {
   setText("c-name",    STORE_NAME);
   setText("c-address", STORE_ADDRESS);
   setText("c-phone",   STORE_PHONE);
 }
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.innerText = value;
-}
+function wirePage() {
+  const path = location.pathname;
 
-// ── Inventory page ───────────────────────────────────────────────────────────
-function wireInventoryPage() {
-  const btn = document.getElementById("add-item");
-  if (!btn) return;
-
-  btn.addEventListener("click", () => {
-    const name  = document.getElementById("item-name").value.trim();
-    const price = Number(document.getElementById("item-price").value);
-    const qty   = Number(document.getElementById("item-quantity").value);
-
-    if (!name || isNaN(price) || isNaN(qty)) {
-      alert("Please fill in all fields correctly.");
-      return;
-    }
-
-    push(ref(db, "inventory"), { name, price, qty });
-
-    document.getElementById("item-name").value = "";
-    document.getElementById("item-price").value = "";
-    document.getElementById("item-quantity").value = "";
-  });
-}
-
-function loadInventoryTable() {
-  const body = document.getElementById("inventory-body");
-  if (!body) return;
-
-  body.innerHTML = "";
-  inventory.forEach(i => {
-    body.innerHTML += `<tr><td>${i.name}</td><td>₦${i.price}</td><td>${i.qty}</td></tr>`;
-  });
-}
-
-// ── Sales page ───────────────────────────────────────────────────────────────
-function wireSalesPage() {
-  const sellBtn  = document.getElementById("sell-btn");
-  const printBtn = document.getElementById("print-btn");
-  if (!sellBtn) return;
-
-  sellBtn.addEventListener("click", () => {
-    const name = document.getElementById("sell-item").value;
-    const qty  = Number(document.getElementById("sell-qty").value);
-
-    if (name === "Select Item" || !qty || qty < 1) {
-      alert("Please select an item and enter a valid quantity.");
-      return;
-    }
-
-    const item = inventory.find(i => i.name === name);
-    if (!item) return;
-
-    const total = qty * item.price;
-    cart.push({ name, qty, price: item.price, total });
-
-    document.getElementById("sell-body").innerHTML +=
-      `<tr><td>${name}</td><td>${qty}</td><td>₦${item.price}</td><td>₦${total}</td></tr>`;
-
-    updateSubtotal();
-    document.getElementById("sell-qty").value = "";
-  });
-
-  printBtn?.addEventListener("click", () => {
-    if (cart.length === 0) {
-      alert("Cart is empty.");
-      return;
-    }
-
-    const receipt = document.getElementById("receipt");
-    receipt.style.display = "block";
-
-    setText("r-store",   STORE_NAME);
-    setText("r-address", STORE_ADDRESS);
-    setText("r-phone",   STORE_PHONE);
-    setText("r-cashier", sessionStorage.getItem("cashier") || "—");
-    setText("r-date",    new Date().toLocaleString());
-
-    const body = document.getElementById("r-items");
-    body.innerHTML = "";
-    cart.forEach(i => {
-      body.innerHTML +=
-        `<tr><td>${i.name}</td><td>${i.qty}</td><td>₦${i.price}</td><td>₦${i.total}</td></tr>`;
-    });
-
-    setText("r-total", document.getElementById("subtotal").innerText);
-
-    window.print();
-  });
-}
-
-function loadSellList() {
-  const sell = document.getElementById("sell-item");
-  if (!sell) return;
-
-  sell.innerHTML = "<option>Select Item</option>";
-  inventory.forEach(i => {
-    sell.innerHTML += `<option value="${i.name}">${i.name}</option>`;
-  });
-}
-
-function updateSubtotal() {
-  const subtotal = cart.reduce((s, i) => s + i.total, 0);
-  const el = document.getElementById("subtotal");
-  if (el) el.innerText = subtotal;
-}
-
-// ── Admin page ───────────────────────────────────────────────────────────────
-function wireAdminPage() {
-  const btn = document.getElementById("cashier-name");
-  if (!btn) return; // not on admin page
-
-  document.querySelector("button[onclick='createCashier()']")
-    ?.addEventListener("click", createCashier);
-}
-
-function createCashier() {
-  const name = document.getElementById("cashier-name").value.trim();
-  const pass = document.getElementById("cashier-pass").value.trim();
-
-  if (!name || !pass) {
-    alert("Please enter both username and password.");
-    return;
+  if (path.includes("login.html")) {
+    on("login-btn", "click", handleLogin);
+    on("password",  "keydown", e => { if (e.key === "Enter") handleLogin(); });
   }
 
-  push(ref(db, "cashiers"), { username: name, password: pass });
-  alert("Cashier created!");
-
-  document.getElementById("cashier-name").value = "";
-  document.getElementById("cashier-pass").value = "";
-}
-
-// ── Login page ───────────────────────────────────────────────────────────────
-function wireLoginPage() {
-  const loginBtn = document.querySelector("button[onclick='login()']");
-  if (!loginBtn) return;
-
-  // Remove the inline onclick and use addEventListener instead
-  loginBtn.removeAttribute("onclick");
-  loginBtn.addEventListener("click", login);
-
-  // Allow pressing Enter to log in
-  document.getElementById("password")?.addEventListener("keydown", e => {
-    if (e.key === "Enter") login();
-  });
-}
-
-async function login() {
-  const u = document.getElementById("username").value.trim();
-  const p = document.getElementById("password").value;
-
-  if (!u || !p) {
-    alert("Please enter username and password.");
-    return;
+  if (path.includes("index.html") || path === "/" || path.endsWith("/")) {
+    on("logout-btn", "click", handleLogout);
   }
 
-  // Admin shortcut
+  if (path.includes("inventory.html")) {
+    on("add-item", "click", handleAddItem);
+  }
+
+  if (path.includes("sales.html")) {
+    on("sell-btn",  "click", handleAddToCart);
+    on("print-btn", "click", handlePrint);
+  }
+
+  if (path.includes("admin.html")) {
+    on("create-cashier-btn", "click", handleCreateCashier);
+  }
+}
+
+async function handleLogin() {
+  const u = $("username").value.trim();
+  const p = $("password").value;
+
+  if (!u || !p) { alert("Please enter username and password."); return; }
+
   if (u === "admin" && p === "admin") {
     sessionStorage.setItem("posAuth", "true");
     sessionStorage.setItem("cashier", u);
@@ -225,19 +90,10 @@ async function login() {
     return;
   }
 
-  // Check cashiers in Firebase
   try {
     const snapshot = await get(ref(db, "cashiers"));
-    const data = snapshot.val();
-    let found = false;
-
-    for (let id in data) {
-      if (data[id].username === u && data[id].password === p) {
-        found = true;
-        break;
-      }
-    }
-
+    const data = snapshot.val() || {};
+    const found = Object.values(data).some(c => c.username === u && c.password === p);
     if (found) {
       sessionStorage.setItem("posAuth", "true");
       sessionStorage.setItem("cashier", u);
@@ -250,22 +106,99 @@ async function login() {
   }
 }
 
-// ── Dashboard logout ─────────────────────────────────────────────────────────
-function wireDashboard() {
-  const logoutBtn = document.querySelector("button[onclick='logout()']");
-  if (!logoutBtn) return;
-
-  logoutBtn.removeAttribute("onclick");
-  logoutBtn.addEventListener("click", logout);
-}
-
-function logout() {
-  sessionStorage.removeItem("posAuth");
-  sessionStorage.removeItem("cashier");
+function handleLogout() {
+  sessionStorage.clear();
   location.href = "login.html";
 }
 
-// Expose to global scope for any remaining inline handlers
-window.login         = login;
-window.logout        = logout;
-window.createCashier = createCashier;
+function handleAddItem() {
+  const name  = $("item-name").value.trim();
+  const price = Number($("item-price").value);
+  const qty   = Number($("item-quantity").value);
+
+  if (!name || !price || !qty) { alert("Please fill in all fields."); return; }
+
+  push(ref(db, "inventory"), { name, price, qty });
+
+  $("item-name").value     = "";
+  $("item-price").value    = "";
+  $("item-quantity").value = "";
+}
+
+function renderInventoryTable() {
+  const body = $("inventory-body");
+  if (!body) return;
+  if (inventory.length === 0) {
+    body.innerHTML = `<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:24px">No items yet</td></tr>`;
+    return;
+  }
+  body.innerHTML = inventory.map(i =>
+    `<tr><td>${i.name}</td><td>&#8358;${i.price.toLocaleString()}</td><td>${i.qty}</td></tr>`
+  ).join("");
+}
+
+function renderSellDropdown() {
+  const sel = $("sell-item");
+  if (!sel) return;
+  sel.innerHTML = `<option value="">-- Select Item --</option>` +
+    inventory.map(i => `<option value="${i.name}">${i.name} — &#8358;${i.price.toLocaleString()}</option>`).join("");
+}
+
+function handleAddToCart() {
+  const name = $("sell-item").value;
+  const qty  = Number($("sell-qty").value);
+
+  if (!name) { alert("Please select an item."); return; }
+  if (!qty || qty < 1) { alert("Please enter a valid quantity."); return; }
+
+  const item = inventory.find(i => i.name === name);
+  if (!item) return;
+
+  const total = qty * item.price;
+  cart.push({ name, qty, price: item.price, total });
+
+  const emptyRow = $("empty-row");
+  if (emptyRow) emptyRow.remove();
+
+  $("sell-body").innerHTML +=
+    `<tr><td>${name}</td><td>${qty}</td><td>&#8358;${item.price.toLocaleString()}</td><td>&#8358;${total.toLocaleString()}</td></tr>`;
+
+  updateSubtotal();
+  $("sell-qty").value = "";
+}
+
+function updateSubtotal() {
+  const total = cart.reduce((s, i) => s + i.total, 0);
+  setText("subtotal", total.toLocaleString());
+}
+
+function handlePrint() {
+  if (cart.length === 0) { alert("Cart is empty."); return; }
+
+  $("receipt").style.display = "block";
+  setText("r-store",   STORE_NAME);
+  setText("r-address", STORE_ADDRESS);
+  setText("r-phone",   STORE_PHONE);
+  setText("r-cashier", sessionStorage.getItem("cashier") || "—");
+  setText("r-date",    new Date().toLocaleString());
+
+  $("r-items").innerHTML = cart.map(i =>
+    `<tr><td>${i.name}</td><td>${i.qty}</td><td>&#8358;${i.price.toLocaleString()}</td><td>&#8358;${i.total.toLocaleString()}</td></tr>`
+  ).join("");
+
+  setText("r-total", cart.reduce((s, i) => s + i.total, 0).toLocaleString());
+  window.print();
+}
+
+function handleCreateCashier() {
+  const name = $("cashier-name").value.trim();
+  const pass = $("cashier-pass").value.trim();
+
+  if (!name || !pass) { alert("Please enter both username and password."); return; }
+
+  push(ref(db, "cashiers"), { username: name, password: pass });
+  alert(`Cashier "${name}" created!`);
+
+  $("cashier-name").value = "";
+  $("cashier-pass").value = "";
+}
