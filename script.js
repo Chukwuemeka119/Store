@@ -189,23 +189,47 @@ function handleAddToCart() {
   }
 
   const total = qty * item.price;
+  const cartIndex = cart.length;
   cart.push({ name, qty, price: item.price, total });
 
   const emptyRow = $("empty-row");
   if (emptyRow) emptyRow.remove();
 
-  $("sell-body").innerHTML +=
-    `<tr><td>${name}</td><td>${qty}</td><td>&#8358;${item.price.toLocaleString()}</td><td>&#8358;${total.toLocaleString()}</td></tr>`;
+  const tr = document.createElement("tr");
+  tr.dataset.cartIndex = cartIndex;
+  tr.innerHTML = `
+    <td>${name}</td>
+    <td>${qty}</td>
+    <td>&#8358;${item.price.toLocaleString()}</td>
+    <td>&#8358;${total.toLocaleString()}</td>
+    <td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="removeFromCart(${cartIndex})">Remove</button></td>`;
+  $("sell-body").appendChild(tr);
 
   updateSubtotal();
   $("sell-qty").value = "";
 }
 
+function removeFromCart(index) {
+  cart[index] = null; // mark as removed
+  const row = $("sell-body").querySelector(`tr[data-cart-index="${index}"]`);
+  if (row) row.remove();
+
+  // If cart is now empty, show empty row
+  const remaining = cart.filter(i => i !== null);
+  if (remaining.length === 0) {
+    cart = [];
+    $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
+  }
+  updateSubtotal();
+}
+window.removeFromCart = removeFromCart;
+
 function updateSubtotal() {
-  setText("subtotal", cart.reduce((s, i) => s + i.total, 0).toLocaleString());
+  setText("subtotal", cart.filter(i => i !== null).reduce((s, i) => s + i.total, 0).toLocaleString());
 }
 
 function handlePrint() {
+  cart = cart.filter(i => i !== null);
   if (cart.length === 0) { alert("Cart is empty."); return; }
 
   const now = new Date();
@@ -246,7 +270,7 @@ function handlePrint() {
 
   // Reset cart
   cart = [];
-  $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
+  $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
   setText("subtotal", "0");
 
   window.print();
