@@ -5,6 +5,26 @@ button { padding:8px 12px; margin:5px; }
 
 /* Center the login box on the page */
 
+@media print {
+
+body *{
+visibility:hidden;
+}
+
+#receipt, #receipt *{
+visibility:visible;
+}
+
+#receipt{
+position:absolute;
+left:0;
+top:0;
+width:300px;
+font-size:14px;
+}
+
+}
+
 
 /* Login box */
 .login-box {
