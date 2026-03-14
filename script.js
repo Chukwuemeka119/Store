@@ -149,9 +149,20 @@ function renderInventoryTable() {
     return;
   }
   body.innerHTML = inventory.map(i =>
-    `<tr><td>${i.name}</td><td>&#8358;${i.price.toLocaleString()}</td><td>${i.qty}</td></tr>`
+    `<tr>
+      <td>${i.name}</td>
+      <td>&#8358;${i.price.toLocaleString()}</td>
+      <td>${i.qty}</td>
+      <td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="deleteItem('${i.id}','${i.name}')">Remove</button></td>
+    </tr>`
   ).join("");
 }
+
+function deleteItem(id, name) {
+  if (!confirm(`Remove "${name}" from inventory?`)) return;
+  remove(ref(db, "inventory/" + id));
+}
+window.deleteItem = deleteItem;
 
 // ── SALES ─────────────────────────────────────────────────────────────────────
 function renderSellDropdown() {
