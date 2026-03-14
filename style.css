@@ -505,3 +505,68 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
   margin-bottom: 16px;
   font-family: 'DM Mono', monospace;
 }
+
+/* ── POWERED BY FOOTER ── */
+.powered-footer {
+  text-align: center;
+  padding: 28px 0 8px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+.powered-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.powered-footer a:hover { opacity: 0.7; }
+
+/* ── RECEIPT FOOTER PRINT ── */
+@media print {
+  .receipt-powered {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #ccc;
+    text-align: center;
+    font-size: 9px;
+    color: #666;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .receipt-powered strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    color: #000;
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+  }
+}
+
+.receipt-powered {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.receipt-powered strong {
+  display: block;
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: 3px;
+  letter-spacing: 0.03em;
+}
