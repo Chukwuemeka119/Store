@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, onValue, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, onValue, get, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
@@ -14,32 +14,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 
-const STORE_NAME    = "Michael POS Store";
-const STORE_ADDRESS = "Abuja Nigeria";
-const STORE_PHONE   = "08012345678";
+// Default business details (overridden by Firebase if saved)
+let STORE = { name: "Michael POS Store", address: "Abuja Nigeria", phone: "08012345678" };
 
-let inventory = [];
-let cart      = [];
+let inventory    = [];
+let cart         = [];
+let allSales     = [];
+let historyPeriod = "daily";
 
 // helpers
 const $  = id => document.getElementById(id);
 const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
 function setText(id, val) { const el = $(id); if (el) el.innerText = val; }
 
-// current page name e.g. "login.html", "index.html"
 const PAGE = location.pathname.split("/").pop() || "index.html";
 
-// auth guard — redirect to login if not authenticated and not already on login page
+// auth guard
 if (PAGE !== "login.html" && !sessionStorage.getItem("posAuth")) {
   location.href = "login.html";
 }
 
 // boot
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadBusinessDetails();
   loadCompany();
   wirePage();
 
-  // Firebase inventory — listen on every page (safe no-ops where elements are absent)
   onValue(ref(db, "inventory"), snapshot => {
     inventory = [];
     const data = snapshot.val() || {};
@@ -49,12 +49,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-function loadCompany() {
-  setText("c-name",    STORE_NAME);
-  setText("c-address", STORE_ADDRESS);
-  setText("c-phone",   STORE_PHONE);
+// ── BUSINESS DETAILS ─────────────────────────────────────────────────────────
+async function loadBusinessDetails() {
+  try {
+    const snap = await get(ref(db, "business"));
+    if (snap.exists()) {
+      const d = snap.val();
+      STORE.name    = d.name    || STORE.name;
+      STORE.address = d.address || STORE.address;
+      STORE.phone   = d.phone   || STORE.phone;
+    }
+  } catch (e) { /* use defaults */ }
 }
 
+function loadCompany() {
+  setText("c-name",    STORE.name);
+  setText("c-address", STORE.address);
+  setText("c-phone",   STORE.phone);
+}
+
+// ── PAGE ROUTER ───────────────────────────────────────────────────────────────
 function wirePage() {
   if (PAGE === "login.html") {
     on("login-btn", "click", handleLogin);
@@ -75,18 +89,19 @@ function wirePage() {
   }
 
   if (PAGE === "admin.html") {
-    on("create-cashier-btn", "click", handleCreateCashier);
+    wireAdminTabs();
+    wireAdminCashiers();
+    wireAdminBusiness();
+    wireAdminHistory();
   }
 }
 
-// ── LOGIN ────────────────────────────────────────────────────────────────────
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
 async function handleLogin() {
   const u = $("username").value.trim();
   const p = $("password").value;
-
   if (!u || !p) { alert("Please enter username and password."); return; }
 
-  // built-in admin
   if (u === "admin" && p === "admin") {
     sessionStorage.setItem("posAuth", "true");
     sessionStorage.setItem("cashier", u);
@@ -94,7 +109,6 @@ async function handleLogin() {
     return;
   }
 
-  // check Firebase cashiers
   try {
     const snapshot = await get(ref(db, "cashiers"));
     const data = snapshot.val() || {};
@@ -111,25 +125,20 @@ async function handleLogin() {
   }
 }
 
-// ── LOGOUT ───────────────────────────────────────────────────────────────────
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
 function handleLogout() {
   sessionStorage.clear();
   location.href = "login.html";
 }
 
-// ── INVENTORY ────────────────────────────────────────────────────────────────
+// ── INVENTORY ─────────────────────────────────────────────────────────────────
 function handleAddItem() {
   const name  = $("item-name").value.trim();
   const price = Number($("item-price").value);
   const qty   = Number($("item-quantity").value);
-
   if (!name || !price || !qty) { alert("Please fill in all fields."); return; }
-
   push(ref(db, "inventory"), { name, price, qty });
-
-  $("item-name").value     = "";
-  $("item-price").value    = "";
-  $("item-quantity").value = "";
+  $("item-name").value = $("item-price").value = $("item-quantity").value = "";
 }
 
 function renderInventoryTable() {
@@ -144,7 +153,7 @@ function renderInventoryTable() {
   ).join("");
 }
 
-// ── SALES ────────────────────────────────────────────────────────────────────
+// ── SALES ─────────────────────────────────────────────────────────────────────
 function renderSellDropdown() {
   const sel = $("sell-item");
   if (!sel) return;
@@ -157,7 +166,6 @@ function renderSellDropdown() {
 function handleAddToCart() {
   const name = $("sell-item").value;
   const qty  = Number($("sell-qty").value);
-
   if (!name) { alert("Please select an item."); return; }
   if (!qty || qty < 1) { alert("Please enter a valid quantity."); return; }
 
@@ -183,35 +191,43 @@ function handleAddToCart() {
 }
 
 function updateSubtotal() {
-  const total = cart.reduce((s, i) => s + i.total, 0);
-  setText("subtotal", total.toLocaleString());
+  setText("subtotal", cart.reduce((s, i) => s + i.total, 0).toLocaleString());
 }
 
 function handlePrint() {
   if (cart.length === 0) { alert("Cart is empty."); return; }
 
+  const now = new Date();
+
   $("receipt").style.display = "block";
-  setText("r-store",   STORE_NAME);
-  setText("r-address", STORE_ADDRESS);
-  setText("r-phone",   STORE_PHONE);
+  setText("r-store",   STORE.name);
+  setText("r-address", STORE.address);
+  setText("r-phone",   STORE.phone);
   setText("r-cashier", sessionStorage.getItem("cashier") || "—");
-  setText("r-date",    new Date().toLocaleString());
+  setText("r-date",    now.toLocaleString());
 
   $("r-items").innerHTML = cart.map(i =>
     `<tr><td>${i.name}</td><td>${i.qty}</td><td>&#8358;${i.price.toLocaleString()}</td><td>&#8358;${i.total.toLocaleString()}</td></tr>`
   ).join("");
 
-  setText("r-total", cart.reduce((s, i) => s + i.total, 0).toLocaleString());
+  const grandTotal = cart.reduce((s, i) => s + i.total, 0);
+  setText("r-total", grandTotal.toLocaleString());
 
-  // Deduct stock in Firebase now that sale is confirmed
+  // Deduct stock
   cart.forEach(cartItem => {
     const inv = inventory.find(i => i.name === cartItem.name);
-    if (inv) {
-      update(ref(db, "inventory/" + inv.id), { qty: inv.qty - cartItem.qty });
-    }
+    if (inv) update(ref(db, "inventory/" + inv.id), { qty: inv.qty - cartItem.qty });
   });
 
-  // Clear cart after printing
+  // Save sale to Firebase history
+  push(ref(db, "sales"), {
+    cashier:   sessionStorage.getItem("cashier") || "—",
+    timestamp: now.toISOString(),
+    total:     grandTotal,
+    items:     cart
+  });
+
+  // Reset cart
   cart = [];
   $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
   setText("subtotal", "0");
@@ -219,16 +235,156 @@ function handlePrint() {
   window.print();
 }
 
-// ── ADMIN ────────────────────────────────────────────────────────────────────
+// ── ADMIN TABS ────────────────────────────────────────────────────────────────
+function wireAdminTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      $("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+// ── ADMIN — CASHIERS ──────────────────────────────────────────────────────────
+function wireAdminCashiers() {
+  on("create-cashier-btn", "click", handleCreateCashier);
+
+  onValue(ref(db, "cashiers"), snapshot => {
+    const body = $("cashier-list");
+    if (!body) return;
+    const data = snapshot.val() || {};
+    const entries = Object.entries(data);
+    if (entries.length === 0) {
+      body.innerHTML = `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">No cashiers yet</td></tr>`;
+      return;
+    }
+    body.innerHTML = entries.map(([id, c]) =>
+      `<tr>
+        <td>${c.username}</td>
+        <td><button class="btn btn-danger" style="padding:6px 14px;font-size:0.7rem" onclick="deleteCashier('${id}')">Remove</button></td>
+      </tr>`
+    ).join("");
+  });
+}
+
 function handleCreateCashier() {
   const name = $("cashier-name").value.trim();
   const pass = $("cashier-pass").value.trim();
-
   if (!name || !pass) { alert("Please enter both username and password."); return; }
-
   push(ref(db, "cashiers"), { username: name, password: pass });
   alert(`Cashier "${name}" created!`);
+  $("cashier-name").value = $("cashier-pass").value = "";
+}
 
-  $("cashier-name").value = "";
-  $("cashier-pass").value = "";
+function deleteCashier(id) {
+  if (!confirm("Remove this cashier?")) return;
+  remove(ref(db, "cashiers/" + id));
+}
+window.deleteCashier = deleteCashier;
+
+// ── ADMIN — BUSINESS DETAILS ──────────────────────────────────────────────────
+function wireAdminBusiness() {
+  // Pre-fill inputs with current values
+  const nameEl = $("biz-name");
+  const addrEl = $("biz-address");
+  const phoneEl = $("biz-phone");
+  if (nameEl)  nameEl.value  = STORE.name;
+  if (addrEl)  addrEl.value  = STORE.address;
+  if (phoneEl) phoneEl.value = STORE.phone;
+
+  on("save-biz-btn", "click", () => {
+    const name    = $("biz-name").value.trim();
+    const address = $("biz-address").value.trim();
+    const phone   = $("biz-phone").value.trim();
+    if (!name || !address || !phone) { alert("Please fill in all fields."); return; }
+
+    update(ref(db, "business"), { name, address, phone });
+    STORE = { name, address, phone };
+    loadCompany();
+    alert("Business details saved!");
+  });
+}
+
+// ── ADMIN — SALES HISTORY ─────────────────────────────────────────────────────
+function wireAdminHistory() {
+  onValue(ref(db, "sales"), snapshot => {
+    allSales = [];
+    const data = snapshot.val() || {};
+    for (const id in data) allSales.push({ id, ...data[id] });
+    renderHistory();
+  });
+
+  document.querySelectorAll(".period-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      historyPeriod = btn.dataset.period;
+      renderHistory();
+    });
+  });
+}
+
+function renderHistory() {
+  const container = $("history-content");
+  if (!container) return;
+
+  if (allSales.length === 0) {
+    container.innerHTML = `<div style="color:var(--muted);text-align:center;padding:40px">No sales recorded yet</div>`;
+    return;
+  }
+
+  // Group sales by period
+  const groups = {};
+  allSales.forEach(sale => {
+    const d = new Date(sale.timestamp);
+    let key;
+    if (historyPeriod === "daily") {
+      key = d.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"short", year:"numeric" });
+    } else if (historyPeriod === "weekly") {
+      // ISO week label
+      const startOfWeek = new Date(d);
+      startOfWeek.setDate(d.getDate() - d.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      key = `${startOfWeek.toLocaleDateString("en-GB",{day:"numeric",month:"short"})} – ${endOfWeek.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
+    } else {
+      key = d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(sale);
+  });
+
+  // Sort groups newest first
+  const sortedKeys = Object.keys(groups).reverse();
+
+  container.innerHTML = sortedKeys.map(key => {
+    const sales = groups[key];
+    const groupTotal = sales.reduce((s, sale) => s + (sale.total || 0), 0);
+
+    const rows = sales.slice().reverse().map(sale => {
+      const time = new Date(sale.timestamp).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
+      const itemList = (sale.items || []).map(i => `${i.name} x${i.qty}`).join(", ");
+      return `<tr>
+        <td style="color:var(--muted);font-size:0.75rem">${time}</td>
+        <td>${sale.cashier || "—"}</td>
+        <td style="font-size:0.78rem;color:var(--muted)">${itemList}</td>
+        <td style="color:var(--accent3);font-weight:600">&#8358;${(sale.total||0).toLocaleString()}</td>
+      </tr>`;
+    }).join("");
+
+    return `<div class="history-group">
+      <div class="history-group-title">
+        ${key}
+        <span class="history-group-total">Total: <span>&#8358;${groupTotal.toLocaleString()}</span></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Items</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
 }
