@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>POS Sales</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2 id="c-name"></h2>
+<p id="c-address"></p>
+<p id="c-phone"></p>
+<hr>
+
+<input type="text" placeholder="Customer Name" id="cn">
+<input type="number" placeholder="Customer Number" id="cnu">
+<br>
+<select id="sell-item"></select>
+<input id="sell-qty" type="number" placeholder="Qty">
+<button id="sell-btn">Add</button>
+<button id="print-btn">Print Receipt</button>
+<button onclick="logout()">Logout</button>
+
+<table>
+<thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+<tbody id="sell-body"></tbody>
+</table>
+
+<h3>Subtotal: ₦<span id="subtotal">0</span></h3>
+
+<a href="inventory.html">Inventory</a> | <a href="admin.html">Admin</a>
+
+<script src="script.js"></script>
+</body>
+</html>

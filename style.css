@@ -1,0 +1,43 @@
+body { font-family: Arial; background:#222; color:white; padding:20px; }
+table { border-collapse: collapse; width:100%; }
+td,th { border:1px solid #555; padding:8px; }
+button { padding:8px 12px; margin:5px; }
+
+/* Center the login box on the page */
+
+
+/* Login box */
+.login-box {
+  background: rgb(32, 32, 32);
+  padding: 30px;
+  width: 320px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+/* Inputs */
+.login-box input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+/* Button */
+.login-box button {
+  width: 100%;
+  padding: 10px;
+  background: #525253;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.login-box button:hover {
+  background: #1c1c1d13;
+}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Inventory</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2 id="c-name"></h2>
+<p id="c-address"></p>
+<p id="c-phone"></p>
+<hr>
+
+<input id="item-name" placeholder="Item Name">
+<input id="item-price" type="number" placeholder="Price">
+<input id="item-quantity" type="number" placeholder="Quantity">
+<button id="add-item">Add Item</button>
+<button onclick="logout()">Logout</button>
+
+<table>
+<thead><tr><th>Name</th><th>Price</th><th>Qty</th></tr></thead>
+<tbody id="inventory-body"></tbody>
+</table>
+
+<a href="index.html">Back to POS</a>
+
+<script src="script.js"></script>
+</body>
+</html>
