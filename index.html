@@ -1,66 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>POS Sales</title>
+<title>POS Dashboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2 id="c-name"></h2>
-<p id="c-address"></p>
-<p id="c-phone"></p>
-<hr>
+<nav class="navbar">
+  <div class="store-info">
+    <h2 id="c-name"></h2>
+    <p id="c-address"></p>
+    <p id="c-phone"></p>
+  </div>
+  <div class="nav-links">
+    <a href="inventory.html">Inventory</a>
+    <a href="sales.html">Sales</a>
+    <a href="admin.html">Admin</a>
+  </div>
+</nav>
 
-<input type="text" placeholder="Customer Name" id="cn">
-<input type="number" placeholder="Customer Number" id="cnu">
-<br>
-<select id="sell-item"></select>
-<input id="sell-qty" type="number" placeholder="Qty">
-<button id="sell-btn">Add</button>
-<button id="print-btn">Print Receipt</button>
-<button onclick="logout()">Logout</button>
+<h1 class="page-title">Welcome <span>back</span></h1>
 
-<table>
-<thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
-<tbody id="sell-body"></tbody>
-</table>
-
-<h3>Subtotal: ₦<span id="subtotal">0</span></h3>
-  <div id="receipt" style="display:none">
-
-<h2 id="r-store"></h2>
-<p id="r-address"></p>
-<p id="r-phone"></p>
-
-<hr>
-
-<p>Cashier: <span id="r-cashier"></span></p>
-<p>Date: <span id="r-date"></span></p>
-
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Qty</th>
-<th>Price</th>
-<th>Total</th>
-</tr>
-</thead>
-
-<tbody id="r-items"></tbody>
-
-</table>
-
-<hr>
-
-<h3>Total: ₦<span id="r-total"></span></h3>
-
-<p style="text-align:center">Thank you for shopping!</p>
-
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+  <a href="inventory.html" style="text-decoration:none;flex:1;min-width:180px">
+    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:1.6rem;margin-bottom:10px">📦</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Inventory</div>
+      <div style="font-size:0.75rem;color:var(--muted)">Manage stock & items</div>
+    </div>
+  </a>
+  <a href="sales.html" style="text-decoration:none;flex:1;min-width:180px">
+    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:1.6rem;margin-bottom:10px">🧾</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Sales</div>
+      <div style="font-size:0.75rem;color:var(--muted)">Process transactions</div>
+    </div>
+  </a>
+  <a href="admin.html" style="text-decoration:none;flex:1;min-width:180px">
+    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:1.6rem;margin-bottom:10px">⚙️</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Admin</div>
+      <div style="font-size:0.75rem;color:var(--muted)">Manage cashiers</div>
+    </div>
+  </a>
 </div>
 
-<a href="inventory.html">Inventory</a> | <a href="admin.html">Admin</a>
+<br>
+<button class="btn btn-danger" onclick="logout()">Sign Out</button>
 
-<script src="script.js"></script>
+<script type="module" src="script.js"></script>
 </body>
 </html>

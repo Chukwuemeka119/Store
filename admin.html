@@ -6,32 +6,38 @@
 </head>
 <body>
 
-<h2 id="c-name"></h2>
-<p id="c-address"></p>
-<p id="c-phone"></p>
-<hr>
-<h2>Settings</h2><br>
-<input id="company-name" placeholder="Company Name">
-<input id="company-address" placeholder="Address">
-<input id="company-phone" placeholder="Phone">
-<button onclick="saveCompany()">Save Company</button>
-<h2>Change Password</h2>
-<label for="old-password">Old Password:</label>
-<input type="password" id="old-password" placeholder="Old Password">
-<label for="new-password">New Password:</label>
-<input type="password" id="new-password" placeholder="New Password">
-<label for="confirm-password">Confirm Password:</label>
-<input type="password" id="confirm-password" placeholder="Confirm Password">
-<button id="change-password-btn">Change Password</button>
-<hr>
-<h2>Sales History</h3>
-<button onclick="logout()">Logout</button>
+<nav class="navbar">
+  <div class="store-info">
+    <h2 id="c-name"></h2>
+    <p id="c-address"></p>
+  </div>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="inventory.html">Inventory</a>
+    <a href="sales.html">Sales</a>
+  </div>
+</nav>
 
-<table>
-<thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Date</th></tr></thead>
-<tbody id="history-body"></tbody>
-</table>
+<h1 class="page-title"><span>Admin</span></h1>
 
-<script src="script.js"></script>
+<div class="card" style="max-width:480px">
+  <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace">Create New Cashier</div>
+
+  <div class="field">
+    <label>Username</label>
+    <input id="cashier-name" placeholder="Enter username">
+  </div>
+
+  <div class="field" style="margin-top:12px">
+    <label>Password</label>
+    <input id="cashier-pass" type="password" placeholder="••••••••">
+  </div>
+
+  <button class="btn btn-primary" style="margin-top:20px;width:100%" onclick="createCashier()">Create Cashier</button>
+</div>
+
+<a href="index.html" class="back-link">← Back to Dashboard</a>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>

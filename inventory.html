@@ -6,24 +6,56 @@
 </head>
 <body>
 
-<h2 id="c-name"></h2>
-<p id="c-address"></p>
-<p id="c-phone"></p>
-<hr>
+<nav class="navbar">
+  <div class="store-info">
+    <h2 id="c-name"></h2>
+    <p id="c-address"></p>
+  </div>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="sales.html">Sales</a>
+    <a href="admin.html">Admin</a>
+  </div>
+</nav>
 
-<input id="item-name" placeholder="Item Name">
-<input id="item-price" type="number" placeholder="Price">
-<input id="item-quantity" type="number" placeholder="Quantity">
-<button id="add-item">Add Item</button>
-<button onclick="logout()">Logout</button>
+<h1 class="page-title"><span>Inventory</span></h1>
 
-<table>
-<thead><tr><th>Name</th><th>Price</th><th>Qty</th></tr></thead>
-<tbody id="inventory-body"></tbody>
-</table>
+<div class="card">
+  <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace">Add New Item</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Item Name</label>
+      <input id="item-name" placeholder="e.g. Coca Cola">
+    </div>
+    <div class="field">
+      <label>Price (₦)</label>
+      <input id="item-price" type="number" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label>Quantity</label>
+      <input id="item-quantity" type="number" placeholder="0">
+    </div>
+    <button id="add-item" class="btn btn-primary" style="align-self:flex-end">+ Add Item</button>
+  </div>
+</div>
 
-<a href="index.html">Back to POS</a>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Item Name</th>
+        <th>Price</th>
+        <th>Qty in Stock</th>
+      </tr>
+    </thead>
+    <tbody id="inventory-body">
+      <tr><td colspan="3" style="color:var(--muted);text-align:center;padding:24px">Loading inventory...</td></tr>
+    </tbody>
+  </table>
+</div>
 
-<script src="script.js"></script>
+<a href="index.html" class="back-link">← Back to Dashboard</a>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>
