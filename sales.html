@@ -24,6 +24,12 @@
 
 <div class="card">
   <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace">Add Item to Cart</div>
+  <div class="field-row" style="margin-bottom:16px">
+    <div class="field">
+      <label>Customer Name</label>
+      <input id="customer-name" placeholder="e.g. John Doe (optional)">
+    </div>
+  </div>
   <div class="field-row">
     <div class="field">
       <label>Select Item</label>
@@ -66,6 +72,7 @@
   <p id="r-phone"></p>
 
   <div class="receipt-meta">
+    <div>Customer: <span id="r-customer"></span></div>
     <div>Cashier: <span id="r-cashier"></span></div>
     <div>Date: <span id="r-date"></span></div>
   </div>
@@ -79,6 +86,7 @@
     </table>
   </div>
 
+  <div class="receipt-subtotal">Subtotal: ₦<span id="r-subtotal"></span></div>
   <div class="receipt-total">Total: ₦<span id="r-total"></span></div>
 
   <div class="receipt-powered">

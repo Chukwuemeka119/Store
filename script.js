@@ -29,9 +29,41 @@ function setText(id, val) { const el = $(id); if (el) el.innerText = val; }
 
 const PAGE = location.pathname.split("/").pop() || "index.html";
 
-// auth guard
+// auth guard — general POS login
 if (PAGE !== "login.html" && !sessionStorage.getItem("posAuth")) {
   location.href = "login.html";
+}
+
+// ── ADMIN PASSWORD HELPERS ────────────────────────────────────────────────────
+let adminPasswordCache = null;
+
+async function getAdminPassword() {
+  if (adminPasswordCache) return adminPasswordCache;
+  try {
+    const snap = await get(ref(db, "config/adminPassword"));
+    adminPasswordCache = snap.exists() ? snap.val() : "admin123";
+  } catch (e) {
+    adminPasswordCache = "admin123";
+  }
+  return adminPasswordCache;
+}
+
+async function verifyAdminPassword(promptMsg = "Enter admin password:") {
+  const correct = await getAdminPassword();
+  const entered = window.prompt(promptMsg);
+  if (entered === null) return false;
+  return entered === correct;
+}
+
+// ── ADMIN PAGE GUARD ──────────────────────────────────────────────────────────
+if (PAGE === "admin.html") {
+  (async () => {
+    const ok = await verifyAdminPassword("🔐 Enter admin password to access this page:");
+    if (!ok) {
+      alert("Incorrect password. Access denied.");
+      location.href = "index.html";
+    }
+  })();
 }
 
 // boot
@@ -102,13 +134,21 @@ async function handleLogin() {
   const p = $("password").value;
   if (!u || !p) { alert("Please enter username and password."); return; }
 
-  if (u === "admin" && p === "admin") {
-    sessionStorage.setItem("posAuth", "true");
-    sessionStorage.setItem("cashier", u);
-    location.href = "index.html";
+  // Check admin account using Firebase-stored admin password
+  if (u === "admin") {
+    const adminPass = await getAdminPassword();
+    if (p === adminPass) {
+      sessionStorage.setItem("posAuth", "true");
+      sessionStorage.setItem("cashier", "admin");
+      sessionStorage.setItem("isAdmin", "true");
+      location.href = "index.html";
+    } else {
+      alert("Wrong password for admin.");
+    }
     return;
   }
 
+  // Check cashier accounts
   try {
     const snapshot = await get(ref(db, "cashiers"));
     const data = snapshot.val() || {};
@@ -158,8 +198,9 @@ function renderInventoryTable() {
   ).join("");
 }
 
-function deleteItem(id, name) {
-  if (!confirm(`Remove "${name}" from inventory?`)) return;
+async function deleteItem(id, name) {
+  const ok = await verifyAdminPassword(`🔐 Enter admin password to remove "${name}":`);
+  if (!ok) { alert("Incorrect password. Item not removed."); return; }
   remove(ref(db, "inventory/" + id));
 }
 window.deleteItem = deleteItem;
@@ -233,20 +274,23 @@ function handlePrint() {
   if (cart.length === 0) { alert("Cart is empty."); return; }
 
   const now = new Date();
+  const customerName = ($("customer-name") && $("customer-name").value.trim()) || "Walk-in";
 
   $("receipt").style.display = "block";
-  setText("r-store",   STORE.name);
-  setText("r-address", STORE.address);
-  setText("r-phone",   STORE.phone);
-  setText("r-cashier", sessionStorage.getItem("cashier") || "—");
-  setText("r-date",    now.toLocaleString());
+  setText("r-store",    STORE.name);
+  setText("r-address",  STORE.address);
+  setText("r-phone",    STORE.phone);
+  setText("r-customer", customerName);
+  setText("r-cashier",  sessionStorage.getItem("cashier") || "—");
+  setText("r-date",     now.toLocaleString());
 
   $("r-items").innerHTML = cart.map(i =>
     `<tr><td>${i.name}</td><td>${i.qty}</td><td>&#8358;${i.price.toLocaleString()}</td><td>&#8358;${i.total.toLocaleString()}</td></tr>`
   ).join("");
 
   const grandTotal = cart.reduce((s, i) => s + i.total, 0);
-  setText("r-total", grandTotal.toLocaleString());
+  setText("r-subtotal", grandTotal.toLocaleString());
+  setText("r-total",    grandTotal.toLocaleString());
 
   // Deduct stock — remove item entirely if qty hits 0
   cart.forEach(cartItem => {
@@ -263,6 +307,7 @@ function handlePrint() {
   // Save sale to Firebase history
   push(ref(db, "sales"), {
     cashier:   sessionStorage.getItem("cashier") || "—",
+    customer:  customerName,
     timestamp: now.toISOString(),
     total:     grandTotal,
     items:     cart
@@ -270,6 +315,7 @@ function handlePrint() {
 
   // Reset cart
   cart = [];
+  if ($("customer-name")) $("customer-name").value = "";
   $("sell-body").innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
   setText("subtotal", "0");
 
@@ -346,6 +392,24 @@ function wireAdminBusiness() {
     loadCompany();
     alert("Business details saved!");
   });
+
+  on("change-pass-btn", "click", async () => {
+    const current  = $("current-pass").value;
+    const newPass  = $("new-pass").value.trim();
+    const confirm2 = $("confirm-pass").value.trim();
+
+    if (!current || !newPass || !confirm2) { alert("Please fill in all password fields."); return; }
+    if (newPass !== confirm2) { alert("New passwords do not match."); return; }
+    if (newPass.length < 4)   { alert("Password must be at least 4 characters."); return; }
+
+    const correct = await getAdminPassword();
+    if (current !== correct) { alert("Current password is incorrect."); return; }
+
+    await update(ref(db, "config"), { adminPassword: newPass });
+    adminPasswordCache = newPass; // update cache
+    alert("Admin password changed successfully!");
+    $("current-pass").value = $("new-pass").value = $("confirm-pass").value = "";
+  });
 }
 
 // ── ADMIN — SALES HISTORY ─────────────────────────────────────────────────────
@@ -415,6 +479,7 @@ function renderHistory() {
       return `<tr>
         <td style="color:var(--muted);font-size:0.75rem">${time}</td>
         <td>${sale.cashier || "—"}</td>
+        <td>${sale.customer || "Walk-in"}</td>
         <td style="font-size:0.78rem;color:var(--muted)">${itemList}</td>
         <td style="color:var(--accent3);font-weight:600">&#8358;${(sale.total||0).toLocaleString()}</td>
       </tr>`;
@@ -427,7 +492,7 @@ function renderHistory() {
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Time</th><th>Cashier</th><th>Items</th><th>Amount</th></tr></thead>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>

@@ -321,6 +321,13 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
   border-top: 1px solid var(--border);
 }
 
+.receipt-subtotal {
+  font-size: 0.85rem;
+  text-align: right;
+  color: var(--muted);
+  margin-top: 12px;
+}
+
 /* ── LOGIN PAGE ── */
 .login-wrap {
   min-height: 100vh;
@@ -414,9 +421,26 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
     color: black;
     border: none;
     padding: 20px;
+    font-family: monospace;
   }
-  #receipt h2, #receipt .receipt-total { color: black; -webkit-text-fill-color: black; }
-  #receipt p, #receipt td, #receipt th { color: black; }
+  #receipt h2 {
+    color: black !important;
+    -webkit-text-fill-color: black !important;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+  #receipt p { color: black; font-size: 0.75rem; margin-bottom: 2px; }
+  #receipt td, #receipt th { color: black; font-size: 0.78rem; padding: 5px 6px; }
+  #receipt .receipt-meta { color: black; font-size: 0.75rem; margin: 10px 0; padding: 8px 0; border-top: 1px dashed #999; border-bottom: 1px dashed #999; }
+  #receipt .receipt-meta span { color: black; font-weight: bold; }
+  #receipt .receipt-meta div { margin-bottom: 3px; }
+  #receipt .receipt-subtotal { color: black; font-size: 0.85rem; text-align: right; margin-top: 8px; }
+  #receipt .receipt-total { color: black !important; -webkit-text-fill-color: black !important; font-size: 1rem; font-weight: bold; text-align: right; margin-top: 4px; padding-top: 6px; border-top: 1px dashed #999; }
+  #receipt .table-wrap { border: none; }
+  #receipt table { font-size: 0.75rem; }
+  #receipt thead tr { background: transparent; }
+  #receipt th { border-bottom: 1px solid #ccc; color: #555; }
+  #receipt td { border-bottom: 1px dashed #eee; }
 }
 
 /* ── ANIMATIONS ── */
