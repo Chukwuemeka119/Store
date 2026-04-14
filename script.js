@@ -39,6 +39,37 @@ if (PAGE !== 'login.html' && !sessionStorage.getItem('posAuth')) {
   location.href = 'login.html';
 }
 
+// ── ACTIVE STATUS CHECK ───────────────────────────────────────────────────────
+// On every page load (except login), check Firebase if the business is still active.
+// This means deactivating from setup-business.html kicks them out immediately
+// on their next action or page navigation — no waiting for logout.
+if (PAGE !== 'login.html' && sessionStorage.getItem('posAuth')) {
+  (async () => {
+    try {
+      const bizId = sessionStorage.getItem('bizId');
+      if (!bizId) { sessionStorage.clear(); location.href = 'login.html'; return; }
+      const snap = await get(ref(db, `businesses/${bizId}/config/active`));
+      if (snap.exists() && snap.val() === false) {
+        sessionStorage.clear();
+        alert('⚠️ Your subscription has been deactivated. Please contact Michael Web™ to renew.');
+        location.href = 'login.html';
+      }
+    } catch (e) { /* network error — allow through */ }
+  })();
+
+  // Also watch in real-time — if deactivated while they're on the page, kick immediately
+  const bizId = sessionStorage.getItem('bizId');
+  if (bizId) {
+    onValue(ref(db, `businesses/${bizId}/config/active`), (snapshot) => {
+      if (snapshot.exists() && snapshot.val() === false) {
+        sessionStorage.clear();
+        alert('⚠️ Your account has been deactivated. Please contact Michael Web™ to renew.');
+        location.href = 'login.html';
+      }
+    });
+  }
+}
+
 // ── ADMIN PASSWORD ────────────────────────────────────────────────────────────
 async function getAdminPassword() {
   if (adminPasswordCache) return adminPasswordCache;
