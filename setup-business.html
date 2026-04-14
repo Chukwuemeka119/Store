@@ -1,141 +1,93 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MW™ — Business Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'DM Mono',monospace;background:#0a0a0f;color:#e8e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(124,106,255,0.15),transparent)}
-  .wrap{width:100%;max-width:520px}
-  h1{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,#7c6aff,#ff6a9b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
-  .sub{font-size:0.72rem;color:#6b6b88;margin-bottom:32px}
-  .card{background:#13131a;border:1px solid #2a2a3a;border-radius:20px;padding:28px;margin-bottom:16px}
-  .section-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#6b6b88;margin-bottom:16px}
-  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
-  label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#6b6b88}
-  input{font-family:'DM Mono',monospace;font-size:0.85rem;background:#1c1c26;border:1px solid #2a2a3a;color:#e8e8f0;padding:11px 14px;border-radius:12px;outline:none;width:100%}
-  input:focus{border-color:#7c6aff;box-shadow:0 0 0 3px rgba(124,106,255,0.15)}
-  .btn{font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:500;text-transform:uppercase;cursor:pointer;border:none;border-radius:12px;padding:12px 22px;transition:all 0.2s;width:100%}
-  .btn-primary{background:linear-gradient(135deg,#7c6aff,#9b8aff);color:#fff;box-shadow:0 4px 20px rgba(124,106,255,0.35)}
-  #status{margin-top:16px;padding:14px 18px;border-radius:12px;font-size:0.78rem;display:none}
-  .status-ok{background:rgba(106,255,212,0.1);border:1px solid rgba(106,255,212,0.25);color:#6affd4}
-  .status-err{background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.25);color:#ff4d6d}
-  .biz-item{background:#13131a;border:1px solid #2a2a3a;border-radius:12px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .biz-code{font-family:'Syne',sans-serif;font-weight:700;color:#7c6aff}
-  .biz-status-active{font-size:0.62rem;color:#6affd4;border:1px solid rgba(106,255,212,0.3);padding:3px 9px;border-radius:99px}
-  .biz-status-inactive{font-size:0.62rem;color:#ff4d6d;border:1px solid rgba(255,77,109,0.3);padding:3px 9px;border-radius:99px}
-  .toggle-btn{background:transparent;border:1px solid #2a2a3a;color:#6b6b88;padding:5px 12px;border-radius:8px;cursor:pointer;font-size:0.65rem}
-  .gate{background:#13131a;border:1px solid #2a2a3a;border-radius:20px;padding:32px}
-</style>
+    <title>MW™ Manager - Secure</title>
+    <style>
+        body { background: #0a0a0f; color: #fff; font-family: monospace; padding: 20px; }
+        .card { background: #13131a; border: 1px solid #2a2a3a; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        input { background: #1c1c26; border: 1px solid #2a2a3a; color: #fff; padding: 8px; width: 100%; box-sizing: border-box; margin: 5px 0; }
+        button { background: #7c6aff; color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; border-radius: 4px; }
+        .flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a3a; padding: 10px 0; }
+    </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>MW™ Business Manager</h1>
-  <p class="sub">Create and manage StockSavvy business accounts</p>
-
-  <div class="gate" id="gate">
-    <h2>🔐 Owner Access</h2>
-    <div class="field"><label>Owner Password</label><input type="password" id="owner-pass"/></div>
-    <button class="btn btn-primary" id="gate-btn">Enter →</button>
-  </div>
-
-  <div id="main" style="display:none">
-    <div class="card">
-      <div class="section-label">Create New Business</div>
-      <div class="field"><label>Code (ID)</label><input id="new-bizcode" placeholder="SHOP001"/></div>
-      <div class="field"><label>Store Name</label><input id="new-bizname"/></div>
-      <div class="field"><label>Phone</label><input id="new-bizphone"/></div>
-      <div class="field"><label>Admin Password</label><input id="new-adminpass" type="password"/></div>
-      <button class="btn btn-primary" id="create-btn">+ Create Business</button>
-      <div id="status"></div>
+    <div id="auth-gate">
+        <h2>Michael Web™ Owner</h2>
+        <input type="password" id="m-pass" placeholder="Owner Password">
+        <button id="btn-gate">Unlock</button>
     </div>
 
-    <div class="card">
-      <div class="section-label">Existing Businesses</div>
-      <div id="biz-list">Loading...</div>
+    <div id="panel" style="display:none">
+        <div class="card">
+            <h3>New Store</h3>
+            <input id="n-id" placeholder="Business ID (e.g. SHOP01)">
+            <input id="n-name" placeholder="Store Name">
+            <input id="n-pass" type="password" placeholder="Admin Password">
+            <button id="btn-create">Create & Activate</button>
+        </div>
+        <div id="list"></div>
     </div>
-  </div>
-</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-const firebaseConfig = {
+const conf = {
   apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
   authDomain: "pos-store-29e58.firebaseapp.com",
   databaseURL: "https://pos-store-29e58-default-rtdb.firebaseio.com",
   projectId: "pos-store-29e58",
   appId: "1:494046387333:web:44ef67eeac8e40e4f19dec"
 };
-
-const app = initializeApp(firebaseConfig, 'setup-tool');
+const app = initializeApp(conf, 'manager');
 const db = getDatabase(app);
-const $ = id => document.getElementById(id);
 
-const PASS = 'mwowner2026';
+const $ = i => document.getElementById(i);
 
-// ── LOGIN GATE ─────────────────
-$('gate-btn').onclick = () => {
-  if ($('owner-pass').value === PASS) {
-    $('gate').style.display = 'none';
-    $('main').style.display = 'block';
-    loadBusinesses();
-  } else alert("Invalid Password");
+$('btn-gate').onclick = () => {
+    if($('m-pass').value === 'mwowner2026') {
+        $('auth-gate').style.display='none';
+        $('panel').style.display='block';
+        render();
+    }
 };
 
-// ── LOAD LIST ──────────────────
-async function loadBusinesses() {
-  const snap = await get(ref(db, 'businesses'));
-  const data = snap.val() || {};
-  const list = $('biz-list');
-  list.innerHTML = '';
-
-  Object.entries(data).forEach(([id, biz]) => {
-    const active = biz.config?.active !== false;
-    const div = document.createElement('div');
-    div.className = 'biz-item';
-    div.innerHTML = `
-      <div><div class="biz-code">${id}</div><div style="font-size:0.7rem">${biz.business?.name || '—'}</div></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="${active ? 'biz-status-active' : 'biz-status-inactive'}">${active ? 'Active' : 'Inactive'}</span>
-        <button class="toggle-btn">${active ? 'Deactivate' : 'Activate'}</button>
-      </div>`;
-    
-    // ATTACH EVENT DIRECTLY (This fixes the "not responding" issue)
-    div.querySelector('.toggle-btn').onclick = () => toggleStatus(id, active);
-    list.appendChild(div);
-  });
-}
-
-// ── TOGGLE STATUS ──────────────
-async function toggleStatus(id, current) {
-  if(!confirm(`Change status for ${id}?`)) return;
-  try {
-    await update(ref(db, `businesses/${id}/config`), { active: !current });
-    loadBusinesses();
-  } catch(e) { alert(e.message); }
-}
-
-// ── CREATE BIZ ─────────────────
-$('create-btn').onclick = async () => {
-  const code = $('new-bizcode').value.trim().toUpperCase();
-  const name = $('new-bizname').value.trim();
-  const phone = $('new-bizphone').value.trim();
-  const pass = $('new-adminpass').value.trim();
-
-  if(!code || !name || !pass) return alert("Fill required fields");
-
-  try {
-    await set(ref(db, `businesses/${code}`), {
-      config: { adminPassword: pass, active: true },
-      business: { name, phone, address: '' }
+async function render() {
+    const snap = await get(ref(db, 'businesses'));
+    const data = snap.val() || {};
+    $('list').innerHTML = '';
+    Object.entries(data).forEach(([id, biz]) => {
+        const item = document.createElement('div');
+        item.className = 'flex';
+        item.innerHTML = `
+            <div><b>${id}</b><br><small>${biz.business.name}</small></div>
+            <div>
+                <input type="date" id="date-${id}" style="width:130px" value="${biz.config.lastPaymentDate.split('T')[0]}">
+                <button class="s-pay" style="width:80px">Paid</button>
+                <button class="s-tog" style="width:80px;background:${biz.config.active?'#ff4d6d':'#4dffb4'}">${biz.config.active?'Kill':'Wake'}</button>
+            </div>`;
+        
+        item.querySelector('.s-pay').onclick = async () => {
+            const d = document.getElementById(`date-${id}`).value;
+            await update(ref(db, `businesses/${id}/config`), { lastPaymentDate: new Date(d).toISOString(), active: true });
+            render();
+        };
+        item.querySelector('.s-tog').onclick = async () => {
+            await update(ref(db, `businesses/${id}/config`), { active: !biz.config.active });
+            render();
+        };
+        $('list').appendChild(item);
     });
-    alert("Business Created!");
-    loadBusinesses();
-  } catch(e) { alert(e.message); }
+}
+
+$('btn-create').onclick = async () => {
+    const id = $('n-id').value.toUpperCase();
+    await set(ref(db, `businesses/${id}`), {
+        config: { adminPassword: $('n-pass').value, active: true, lastPaymentDate: new Date().toISOString() },
+        business: { name: $('n-name').value }
+    });
+    render();
 };
 </script>
 </body>

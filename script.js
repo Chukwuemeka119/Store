@@ -1,3 +1,4 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, push, onValue, get, update, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -7,498 +8,61 @@ const firebaseConfig = {
   authDomain: "pos-store-29e58.firebaseapp.com",
   databaseURL: "https://pos-store-29e58-default-rtdb.firebaseio.com",
   projectId: "pos-store-29e58",
-  storageBucket: "pos-store-29e58.firebasestorage.app",
-  messagingSenderId: "494046387333",
   appId: "1:494046387333:web:44ef67eeac8e40e4f19dec"
 };
 
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 
-// ── BUSINESS ID ───────────────────────────────────────────────────────────────
-// Every business gets a unique ID stored in sessionStorage after login.
-// All Firebase paths are scoped to /businesses/{bizId}/
-function getBizId() { return sessionStorage.getItem('bizId'); }
-function bizRef(path) { return ref(db, `businesses/${getBizId()}/${path}`); }
+// Sanitization to prevent XSS attacks
+const clean = (str) => String(str).replace(/[<>]/g, '');
 
-let STORE = { name: '', address: '', phone: '' };
-let inventory = [];
-let cart = [];
-let allSales = [];
-let historyPeriod = 'daily';
-let adminPasswordCache = null;
-
-const $  = id => document.getElementById(id);
-const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
-function setText(id, val) { const el = $(id); if (el) el.innerText = val; }
-
-const PAGE = location.pathname.split('/').pop() || 'index.html';
-
-// ── AUTH GUARD ────────────────────────────────────────────────────────────────
-if (PAGE !== 'login.html' && !sessionStorage.getItem('posAuth')) {
-  location.href = 'login.html';
-}
-
-// ── ACTIVE STATUS CHECK ───────────────────────────────────────────────────────
-// On every page load (except login), check Firebase if the business is still active.
-// This means deactivating from setup-business.html kicks them out immediately
-// on their next action or page navigation — no waiting for logout.
-if (PAGE !== 'login.html' && sessionStorage.getItem('posAuth')) {
-  (async () => {
+// AUTH & SUBSCRIPTION CHECK
+window.login = async (bizCode, user, pass) => {
+    bizCode = clean(bizCode.toUpperCase());
+    user = clean(user);
+    
     try {
-      const bizId = sessionStorage.getItem('bizId');
-      if (!bizId) { sessionStorage.clear(); location.href = 'login.html'; return; }
-      const snap = await get(ref(db, `businesses/${bizId}/config/active`));
-      if (snap.exists() && snap.val() === false) {
-        sessionStorage.clear();
-        alert('⚠️ Your subscription has been deactivated. Please contact Michael Web™ to renew.');
-        location.href = 'login.html';
-      }
-    } catch (e) { /* network error — allow through */ }
-  })();
+        const snap = await get(ref(db, `businesses/${bizCode}`));
+        if (!snap.exists()) return alert("Business not found");
+        
+        const data = snap.val();
+        const config = data.config;
 
-  // Also watch in real-time — if deactivated while they're on the page, kick immediately
-  const bizId = sessionStorage.getItem('bizId');
-  if (bizId) {
-    onValue(ref(db, `businesses/${bizId}/config/active`), (snapshot) => {
-      if (snapshot.exists() && snapshot.val() === false) {
-        sessionStorage.clear();
-        alert('⚠️ Your account has been deactivated. Please contact Michael Web™ to renew.');
-        location.href = 'login.html';
-      }
-    });
-  }
-}
+        // 1. Manual Deactivation Check
+        if (config.active === false) return alert("Account Disabled by Michael Web™");
 
-// ── ADMIN PASSWORD ────────────────────────────────────────────────────────────
-async function getAdminPassword() {
-  if (adminPasswordCache) return adminPasswordCache;
-  try {
-    const snap = await get(bizRef('config/adminPassword'));
-    adminPasswordCache = snap.exists() ? snap.val() : 'admin123';
-  } catch (e) { adminPasswordCache = 'admin123'; }
-  return adminPasswordCache;
-}
+        // 2. Automated 3-Day Grace Period Check
+        const lastPaid = new Date(config.lastPaymentDate);
+        const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, 3, 12, 0, 0);
+        const now = new Date();
 
-async function verifyAdminPassword(msg = 'Enter admin password:') {
-  const correct = await getAdminPassword();
-  const entered = window.prompt(msg);
-  if (entered === null) return false;
-  return entered === correct;
-}
+        if (now > expiry) {
+            await update(ref(db, `businesses/${bizCode}/config`), { active: false });
+            return alert("Subscription Expired (3-day grace period ended).");
+        }
 
-// Admin page guard
-if (PAGE === 'admin.html') {
-  (async () => {
-    const ok = await verifyAdminPassword('🔐 Enter admin password to access this page:');
-    if (!ok) { alert('Incorrect password. Access denied.'); location.href = 'index.html'; }
-  })();
-}
+        // 3. Reminder (5 days before the 3rd)
+        const reminderDate = new Date(expiry);
+        reminderDate.setDate(reminderDate.getDate() - 5);
+        if (now > reminderDate) {
+            const days = Math.ceil((expiry - now) / (86400000));
+            alert(`⚠️ PAYMENT REMINDER: Account deactivates in ${days} days.`);
+        }
 
-// ── BOOT ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  if (PAGE === 'login.html') { wirePage(); return; }
-  await loadBusinessDetails();
-  loadCompany();
-  wirePage();
+        // 4. Password Verification
+        if (user === 'admin' && pass === config.adminPassword) {
+            proceed(bizCode, 'admin');
+        } else if (data.cashiers?.[user]?.password === pass) {
+            proceed(bizCode, user);
+        } else {
+            alert("Wrong credentials");
+        }
+    } catch (e) { console.error(e); }
+};
 
-  onValue(bizRef('inventory'), snapshot => {
-    inventory = [];
-    const data = snapshot.val() || {};
-    for (const id in data) inventory.push({ id, ...data[id] });
-    renderInventoryTable();
-    renderSellDropdown();
-  });
-});
-
-// ── BUSINESS DETAILS ──────────────────────────────────────────────────────────
-async function loadBusinessDetails() {
-  try {
-    const snap = await get(bizRef('business'));
-    if (snap.exists()) {
-      const d = snap.val();
-      STORE.name    = d.name    || STORE.name;
-      STORE.address = d.address || STORE.address;
-      STORE.phone   = d.phone   || STORE.phone;
-    }
-  } catch (e) {}
-}
-
-function loadCompany() {
-  setText('c-name',    STORE.name);
-  setText('c-address', STORE.address);
-  setText('c-phone',   STORE.phone);
-}
-
-// ── PAGE ROUTER ───────────────────────────────────────────────────────────────
-function wirePage() {
-  if (PAGE === 'login.html') {
-    on('login-btn', 'click', handleLogin);
-    on('password',  'keydown', e => { if (e.key === 'Enter') handleLogin(); });
-  }
-  if (PAGE === 'index.html' || PAGE === '') {
-    on('logout-btn', 'click', handleLogout);
-  }
-  if (PAGE === 'inventory.html') {
-    on('add-item', 'click', handleAddItem);
-  }
-  if (PAGE === 'sales.html') {
-    on('sell-btn',  'click', handleAddToCart);
-    on('print-btn', 'click', handlePrint);
-  }
-  if (PAGE === 'admin.html') {
-    wireAdminTabs();
-    wireAdminCashiers();
-    wireAdminBusiness();
-    wireAdminHistory();
-  }
-}
-
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
-async function handleLogin() {
-  const u = $('username').value.trim();
-  const p = $('password').value.trim();
-  const b = $('bizcode') ? $('bizcode').value.trim().toUpperCase() : '';
-
-  if (!u || !p || !b) { alert('Please enter business code, username and password.'); return; }
-
-  // Check if business exists and is active
-  try {
-    const bizSnap = await get(ref(db, `businesses/${b}/config`));
-    if (!bizSnap.exists()) { alert('Business code not found. Contact Michael Web™.'); return; }
-    const config = bizSnap.val();
-    if (config.active === false) { alert('This account is inactive. Please renew your subscription.'); return; }
-
-    // Check admin login
-    if (u === 'admin') {
-      const adminPass = config.adminPassword || 'admin123';
-      if (p === adminPass) {
-        sessionStorage.setItem('posAuth', 'true');
-        sessionStorage.setItem('cashier', 'admin');
-        sessionStorage.setItem('isAdmin', 'true');
-        sessionStorage.setItem('bizId', b);
-        location.href = 'index.html';
-        return;
-      } else { alert('Wrong password for admin.'); return; }
-    }
-
-    // Check cashier login
-    const cashSnap = await get(ref(db, `businesses/${b}/cashiers`));
-    const cashData = cashSnap.val() || {};
-    const found = Object.values(cashData).some(c => c.username === u && c.password === p);
-    if (found) {
-      sessionStorage.setItem('posAuth', 'true');
-      sessionStorage.setItem('cashier', u);
-      sessionStorage.setItem('bizId', b);
-      location.href = 'index.html';
-    } else {
-      alert('Wrong username or password.');
-    }
-  } catch (err) {
-    alert('Login error: ' + err.message);
-  }
-}
-
-// ── LOGOUT ────────────────────────────────────────────────────────────────────
-function handleLogout() {
-  sessionStorage.clear();
-  location.href = 'login.html';
-}
-
-// ── INVENTORY ─────────────────────────────────────────────────────────────────
-function handleAddItem() {
-  const name  = $('item-name').value.trim();
-  const price = Number($('item-price').value);
-  const qty   = Number($('item-quantity').value);
-  if (!name || !price || !qty) { alert('Please fill in all fields.'); return; }
-  push(bizRef('inventory'), { name, price, qty });
-  $('item-name').value = $('item-price').value = $('item-quantity').value = '';
-}
-
-function renderInventoryTable() {
-  const body = $('inventory-body');
-  if (!body) return;
-  if (inventory.length === 0) {
-    body.innerHTML = `<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">No items yet</td></tr>`;
-    return;
-  }
-  body.innerHTML = inventory.map(i =>
-    `<tr>
-      <td>${i.name}</td>
-      <td>&#8358;${i.price.toLocaleString()}</td>
-      <td>${i.qty}</td>
-      <td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="deleteItem('${i.id}','${i.name}')">Remove</button></td>
-    </tr>`
-  ).join('');
-}
-
-async function deleteItem(id, name) {
-  const ok = await verifyAdminPassword(`🔐 Enter admin password to remove "${name}":`);
-  if (!ok) { alert('Incorrect password. Item not removed.'); return; }
-  remove(bizRef('inventory/' + id));
-}
-window.deleteItem = deleteItem;
-
-// ── SALES ─────────────────────────────────────────────────────────────────────
-function renderSellDropdown() {
-  const sel = $('sell-item');
-  if (!sel) return;
-  sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i =>
-      `<option value="${i.name}">${i.name} — &#8358;${i.price.toLocaleString()}</option>`
-    ).join('');
-}
-
-function handleAddToCart() {
-  const name = $('sell-item').value;
-  const qty  = Number($('sell-qty').value);
-  if (!name) { alert('Please select an item.'); return; }
-  if (!qty || qty < 1) { alert('Please enter a valid quantity.'); return; }
-
-  const item = inventory.find(i => i.name === name);
-  if (!item) return;
-  if (qty > item.qty) { alert(`Not enough stock. Only ${item.qty} left for "${name}".`); return; }
-
-  const total = qty * item.price;
-  const cartIndex = cart.length;
-  cart.push({ name, qty, price: item.price, total });
-
-  const emptyRow = $('empty-row');
-  if (emptyRow) emptyRow.remove();
-
-  const tr = document.createElement('tr');
-  tr.dataset.cartIndex = cartIndex;
-  tr.innerHTML = `
-    <td>${name}</td><td>${qty}</td>
-    <td>&#8358;${item.price.toLocaleString()}</td>
-    <td>&#8358;${total.toLocaleString()}</td>
-    <td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="removeFromCart(${cartIndex})">Remove</button></td>`;
-  $('sell-body').appendChild(tr);
-  updateSubtotal();
-  $('sell-qty').value = '';
-}
-
-function removeFromCart(index) {
-  cart[index] = null;
-  const row = $('sell-body').querySelector(`tr[data-cart-index="${index}"]`);
-  if (row) row.remove();
-  if (cart.filter(i => i !== null).length === 0) {
-    cart = [];
-    $('sell-body').innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
-  }
-  updateSubtotal();
-}
-window.removeFromCart = removeFromCart;
-
-function updateSubtotal() {
-  setText('subtotal', cart.filter(i => i !== null).reduce((s, i) => s + i.total, 0).toLocaleString());
-}
-
-function handlePrint() {
-  cart = cart.filter(i => i !== null);
-  if (cart.length === 0) { alert('Cart is empty.'); return; }
-
-  const now = new Date();
-  const customerName = ($('customer-name') && $('customer-name').value.trim()) || 'Walk-in';
-
-  $('receipt').style.display = 'block';
-  setText('r-store',    STORE.name);
-  setText('r-address',  STORE.address);
-  setText('r-phone',    STORE.phone);
-  setText('r-customer', customerName);
-  setText('r-cashier',  sessionStorage.getItem('cashier') || '—');
-  setText('r-date',     now.toLocaleString());
-
-  $('r-items').innerHTML = cart.map(i =>
-    `<tr><td>${i.name}</td><td>${i.qty}</td><td>&#8358;${i.price.toLocaleString()}</td><td>&#8358;${i.total.toLocaleString()}</td></tr>`
-  ).join('');
-
-  const grandTotal = cart.reduce((s, i) => s + i.total, 0);
-  setText('r-subtotal', grandTotal.toLocaleString());
-  setText('r-total',    grandTotal.toLocaleString());
-
-  cart.forEach(cartItem => {
-    const inv = inventory.find(i => i.name === cartItem.name);
-    if (!inv) return;
-    const newQty = inv.qty - cartItem.qty;
-    if (newQty <= 0) remove(bizRef('inventory/' + inv.id));
-    else update(bizRef('inventory/' + inv.id), { qty: newQty });
-  });
-
-  push(bizRef('sales'), {
-    cashier:   sessionStorage.getItem('cashier') || '—',
-    customer:  customerName,
-    timestamp: now.toISOString(),
-    total:     grandTotal,
-    items:     cart
-  });
-
-  cart = [];
-  if ($('customer-name')) $('customer-name').value = '';
-  $('sell-body').innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>`;
-  setText('subtotal', '0');
-  window.print();
-}
-
-// ── ADMIN TABS ────────────────────────────────────────────────────────────────
-function wireAdminTabs() {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      $('tab-' + btn.dataset.tab).classList.add('active');
-    });
-  });
-}
-
-// ── ADMIN — CASHIERS ──────────────────────────────────────────────────────────
-function wireAdminCashiers() {
-  on('create-cashier-btn', 'click', handleCreateCashier);
-  onValue(bizRef('cashiers'), snapshot => {
-    const body = $('cashier-list');
-    if (!body) return;
-    const data = snapshot.val() || {};
-    const entries = Object.entries(data);
-    if (entries.length === 0) {
-      body.innerHTML = `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">No cashiers yet</td></tr>`;
-      return;
-    }
-    body.innerHTML = entries.map(([id, c]) =>
-      `<tr>
-        <td>${c.username}</td>
-        <td><button class="btn btn-danger" style="padding:6px 14px;font-size:0.7rem" onclick="deleteCashier('${id}')">Remove</button></td>
-      </tr>`
-    ).join('');
-  });
-}
-
-function handleCreateCashier() {
-  const name = $('cashier-name').value.trim();
-  const pass = $('cashier-pass').value.trim();
-  if (!name || !pass) { alert('Please enter both username and password.'); return; }
-  push(bizRef('cashiers'), { username: name, password: pass });
-  alert(`Cashier "${name}" created!`);
-  $('cashier-name').value = $('cashier-pass').value = '';
-}
-
-function deleteCashier(id) {
-  if (!confirm('Remove this cashier?')) return;
-  remove(bizRef('cashiers/' + id));
-}
-window.deleteCashier = deleteCashier;
-
-// ── ADMIN — BUSINESS DETAILS ──────────────────────────────────────────────────
-function wireAdminBusiness() {
-  const nameEl  = $('biz-name');
-  const addrEl  = $('biz-address');
-  const phoneEl = $('biz-phone');
-  if (nameEl)  nameEl.value  = STORE.name;
-  if (addrEl)  addrEl.value  = STORE.address;
-  if (phoneEl) phoneEl.value = STORE.phone;
-
-  on('save-biz-btn', 'click', () => {
-    const name    = $('biz-name').value.trim();
-    const address = $('biz-address').value.trim();
-    const phone   = $('biz-phone').value.trim();
-    if (!name || !address || !phone) { alert('Please fill in all fields.'); return; }
-    update(bizRef('business'), { name, address, phone });
-    STORE = { name, address, phone };
-    loadCompany();
-    alert('Business details saved!');
-  });
-
-  on('change-pass-btn', 'click', async () => {
-    const current  = $('current-pass').value;
-    const newPass  = $('new-pass').value.trim();
-    const confirm2 = $('confirm-pass').value.trim();
-    if (!current || !newPass || !confirm2) { alert('Please fill in all password fields.'); return; }
-    if (newPass !== confirm2) { alert('New passwords do not match.'); return; }
-    if (newPass.length < 4)  { alert('Password must be at least 4 characters.'); return; }
-    const correct = await getAdminPassword();
-    if (current !== correct) { alert('Current password is incorrect.'); return; }
-    await update(bizRef('config'), { adminPassword: newPass });
-    adminPasswordCache = newPass;
-    alert('Admin password changed successfully!');
-    $('current-pass').value = $('new-pass').value = $('confirm-pass').value = '';
-  });
-}
-
-// ── ADMIN — HISTORY ───────────────────────────────────────────────────────────
-function wireAdminHistory() {
-  onValue(bizRef('sales'), snapshot => {
-    allSales = [];
-    const data = snapshot.val() || {};
-    for (const id in data) allSales.push({ id, ...data[id] });
-    renderHistory();
-  });
-
-  on('clear-history-btn', 'click', () => {
-    if (!confirm('Clear all sales history? This cannot be undone.')) return;
-    remove(bizRef('sales'));
-  });
-
-  document.querySelectorAll('.period-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      historyPeriod = btn.dataset.period;
-      renderHistory();
-    });
-  });
-}
-
-function renderHistory() {
-  const container = $('history-content');
-  if (!container) return;
-  if (allSales.length === 0) {
-    container.innerHTML = `<div style="color:var(--muted);text-align:center;padding:40px">No sales recorded yet</div>`;
-    return;
-  }
-
-  const groups = {};
-  allSales.forEach(sale => {
-    const d = new Date(sale.timestamp);
-    let key;
-    if (historyPeriod === 'daily') {
-      key = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short', year:'numeric' });
-    } else if (historyPeriod === 'weekly') {
-      const startOfWeek = new Date(d); startOfWeek.setDate(d.getDate() - d.getDay());
-      const endOfWeek   = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
-      key = `${startOfWeek.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${endOfWeek.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
-    } else {
-      key = d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
-    }
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(sale);
-  });
-
-  const sortedKeys = Object.keys(groups).reverse();
-  container.innerHTML = sortedKeys.map(key => {
-    const sales = groups[key];
-    const groupTotal = sales.reduce((s, sale) => s + (sale.total || 0), 0);
-    const rows = sales.slice().reverse().map(sale => {
-      const time = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-      const itemList = (sale.items || []).map(i => `${i.name} x${i.qty}`).join(', ');
-      return `<tr>
-        <td style="color:var(--muted);font-size:0.75rem">${time}</td>
-        <td>${sale.cashier || '—'}</td>
-        <td>${sale.customer || 'Walk-in'}</td>
-        <td style="font-size:0.78rem;color:var(--muted)">${itemList}</td>
-        <td style="color:var(--accent3);font-weight:600">&#8358;${(sale.total||0).toLocaleString()}</td>
-      </tr>`;
-    }).join('');
-    return `<div class="history-group">
-      <div class="history-group-title">
-        ${key}
-        <span class="history-group-total">Total: <span>&#8358;${groupTotal.toLocaleString()}</span></span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
+function proceed(id, role) {
+    sessionStorage.setItem('bizId', id);
+    sessionStorage.setItem('role', role);
+    location.href = 'index.html';
 }
