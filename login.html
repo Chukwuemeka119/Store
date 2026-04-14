@@ -6,11 +6,15 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div class="login-wrap">
   <div class="login-card">
-    <div class="login-logo">POS System</div>
-    <p class="login-sub">Sign in to your account</p>
+    <div class="login-logo">StockSavvy</div>
+    <p class="login-sub">Sign in to your store</p>
+
+    <div class="field">
+      <label>Business Code</label>
+      <input id="bizcode" placeholder="e.g. SHOP001" style="text-transform:uppercase">
+    </div>
 
     <div class="field">
       <label>Username</label>
@@ -23,9 +27,13 @@
     </div>
 
     <button class="btn btn-primary" id="login-btn">Sign In →</button>
+
+    <p style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:20px">
+      Need a business code? Contact<br>
+      <strong style="color:var(--accent)">Michael Web™</strong> — 08033441185
+    </p>
   </div>
 </div>
-
 <script type="module" src="script.js"></script>
 </body>
 </html>
