@@ -45,7 +45,6 @@ input::placeholder{color:#6b6b88}
   <h1>MW™ Business Manager</h1>
   <p class="sub">Create and manage StockSavvy business accounts</p>
 
-  <!-- OWNER LOGIN GATE -->
   <div class="gate" id="gate">
     <h2>🔐 Owner Access</h2>
     <div class="field">
@@ -57,7 +56,6 @@ input::placeholder{color:#6b6b88}
   </div>
 
   <div id="main" style="display:none">
-    <!-- CREATE BUSINESS -->
     <div class="card">
       <div class="section-label">Create New Business Account</div>
 
@@ -86,7 +84,6 @@ input::placeholder{color:#6b6b88}
       <div id="status"></div>
     </div>
 
-    <!-- EXISTING BUSINESSES -->
     <div class="card">
       <div class="section-label">Existing Business Accounts</div>
       <div id="biz-list"><div style="color:#6b6b88;font-size:0.78rem">Loading...</div></div>
@@ -132,6 +129,9 @@ $('owner-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('gat
 
 // ── CREATE BUSINESS ───────────────────────────────
 $('create-btn').addEventListener('click', async () => {
+  const btn = $('create-btn');
+  btn.disabled = true; // Prevent double submission
+  
   const bizId    = $('new-bizcode').value.trim().toUpperCase();
   const name     = $('new-bizname').value.trim();
   const address  = $('new-bizaddr').value.trim();
@@ -139,27 +139,40 @@ $('create-btn').addEventListener('click', async () => {
   const adminPw  = $('new-adminpass').value.trim();
 
   if (!bizId || !name || !address || !phone || !adminPw) {
-    showStatus('Please fill in all fields.', false); return;
+    showStatus('Please fill in all fields.', false); 
+    btn.disabled = false;
+    return;
   }
-  if (adminPw.length < 4) { showStatus('Admin password must be at least 4 characters.', false); return; }
+  if (adminPw.length < 4) { 
+    showStatus('Admin password must be at least 4 characters.', false); 
+    btn.disabled = false;
+    return; 
+  }
 
-  // Check if code already exists
-  const snap = await get(ref(db, `businesses/${bizId}`));
-  if (snap.exists()) { showStatus(`Business code "${bizId}" already exists. Choose a different code.`, false); return; }
+  try {
+    const snap = await get(ref(db, `businesses/${bizId}`));
+    if (snap.exists()) { 
+      showStatus(`Business code "${bizId}" already exists.`, false); 
+      btn.disabled = false;
+      return; 
+    }
 
-  // Create business
-  await set(ref(db, `businesses/${bizId}`), {
-    config: {
-      adminPassword: adminPw,
-      active: true,
-      createdAt: new Date().toISOString(),
-    },
-    business: { name, address, phone }
-  });
+    await set(ref(db, `businesses/${bizId}`), {
+      config: {
+        adminPassword: adminPw,
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      business: { name, address, phone }
+    });
 
-  showStatus(`✓ Business "${name}" created! Code: ${bizId} | Admin password: ${adminPw}`, true);
-  $('new-bizcode').value = $('new-bizname').value = $('new-bizaddr').value = $('new-bizphone').value = $('new-adminpass').value = '';
-  loadBusinesses();
+    showStatus(`✓ Business "${name}" created!`, true);
+    $('new-bizcode').value = $('new-bizname').value = $('new-bizaddr').value = $('new-bizphone').value = $('new-adminpass').value = '';
+    loadBusinesses();
+  } catch (err) {
+    showStatus('Error: ' + err.message, false);
+  }
+  btn.disabled = false;
 });
 
 function showStatus(msg, ok) {
@@ -193,17 +206,22 @@ async function loadBusinesses() {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="${active ? 'biz-status-active' : 'biz-status-inactive'}">${active ? 'Active' : 'Inactive'}</span>
-        <button class="toggle-btn" onclick="toggleBusiness('${id}', ${active})">${active ? 'Deactivate' : 'Activate'}</button>
+        <button class="toggle-btn" onclick="window.toggleBusiness('${id}', ${active})">${active ? 'Deactivate' : 'Activate'}</button>
       </div>
     </div>`;
   }).join('');
 }
 
+// Global attachment for HTML inline events
 window.toggleBusiness = async (id, currentlyActive) => {
   const action = currentlyActive ? 'deactivate' : 'activate';
   if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} business "${id}"?`)) return;
-  await update(ref(db, `businesses/${id}/config`), { active: !currentlyActive });
-  loadBusinesses();
+  try {
+    await update(ref(db, `businesses/${id}/config`), { active: !currentlyActive });
+    loadBusinesses();
+  } catch (err) {
+    alert('Failed to update business: ' + err.message);
+  }
 };
 </script>
 </body>
