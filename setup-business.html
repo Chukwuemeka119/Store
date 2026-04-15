@@ -1,31 +1,32 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MW™ Manager</title>
-    <link rel="stylesheet" href="style.css">
+    <title>MW™ Manager - Secure</title>
+    <style>
+        body { background: #0a0a0f; color: #fff; font-family: monospace; padding: 20px; }
+        .card { background: #13131a; border: 1px solid #2a2a3a; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        input { background: #1c1c26; border: 1px solid #2a2a3a; color: #fff; padding: 8px; width: 100%; box-sizing: border-box; margin: 5px 0; }
+        button { background: #7c6aff; color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; border-radius: 4px; }
+        .flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a3a; padding: 10px 0; }
+    </style>
 </head>
 <body>
-    <div id="auth-gate" class="card" style="max-width:400px; margin: 50px auto;">
-        <h2>Owner Login</h2>
-        <input type="password" id="m-pass" placeholder="Enter Owner Password">
-        <button id="btn-gate">Unlock Manager</button>
+    <div id="auth-gate">
+        <h2>Michael Web™ Owner</h2>
+        <input type="password" id="m-pass" placeholder="Owner Password">
+        <button id="btn-gate">Unlock</button>
     </div>
 
     <div id="panel" style="display:none">
         <div class="card">
-            <h3>Register New Store</h3>
+            <h3>New Store</h3>
             <input id="n-id" placeholder="Business ID (e.g. SHOP01)">
             <input id="n-name" placeholder="Store Name">
             <input id="n-pass" type="password" placeholder="Admin Password">
             <button id="btn-create">Create & Activate</button>
         </div>
-
-        <div class="card">
-            <h3>Manage Accounts</h3>
-            <div id="list">Loading businesses...</div>
-        </div>
+        <div id="list"></div>
     </div>
 
 <script type="module">
@@ -44,60 +45,44 @@ const db = getDatabase(app);
 
 const $ = i => document.getElementById(i);
 
-// Globalize functions for mobile browsers
-window.handlePaid = async (id) => {
-    const d = document.getElementById(`date-${id}`).value;
-    if(!d) return alert("Select date first");
-    await update(ref(db, `businesses/${id}/config`), { 
-        lastPaymentDate: new Date(d).toISOString(), 
-        active: true 
-    });
-    render();
-};
-
-window.handleToggle = async (id, currentStatus) => {
-    await update(ref(db, `businesses/${id}/config`), { active: !currentStatus });
-    render();
-};
-
 $('btn-gate').onclick = () => {
     if($('m-pass').value === 'mwowner2026') {
         $('auth-gate').style.display='none';
         $('panel').style.display='block';
         render();
-    } else { alert("Access Denied"); }
+    }
 };
 
 async function render() {
-    try {
-        const snap = await get(ref(db, 'businesses'));
-        const data = snap.val() || {};
-        const listDiv = $('list');
-        listDiv.innerHTML = '';
+    const snap = await get(ref(db, 'businesses'));
+    const data = snap.val() || {};
+    $('list').innerHTML = '';
+    Object.entries(data).forEach(([id, biz]) => {
+        const item = document.createElement('div');
+        item.className = 'flex';
+        item.innerHTML = `
+            <div><b>${id}</b><br><small>${biz.business.name}</small></div>
+            <div>
+                <input type="date" id="date-${id}" style="width:130px" value="${biz.config.lastPaymentDate.split('T')[0]}">
+                <button class="s-pay" style="width:80px">Paid</button>
+                <button class="s-tog" style="width:80px;background:${biz.config.active?'#ff4d6d':'#4dffb4'}">${biz.config.active?'Kill':'Wake'}</button>
+            </div>`;
         
-        Object.entries(data).forEach(([id, biz]) => {
-            const active = biz.config.active !== false;
-            const item = document.createElement('div');
-            item.className = 'card';
-            item.style.borderLeft = active ? '4px solid var(--success)' : '4px solid var(--danger)';
-            item.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px">
-                    <div><b>${id}</b><br><small>${biz.business?.name || 'Store'}</small></div>
-                    <span style="color:${active?'var(--success)':'var(--danger)'}">${active?'ACTIVE':'OFF'}</span>
-                </div>
-                <input type="date" id="date-${id}" value="${biz.config.lastPaymentDate?.split('T')[0] || ''}">
-                <div style="display:flex; gap:10px">
-                    <button onclick="handlePaid('${id}')" style="background:var(--success); color:#000">Set Paid</button>
-                    <button onclick="handleToggle('${id}', ${active})" style="background:${active?'var(--danger)':'var(--accent)'}">${active?'Kill':'Wake'}</button>
-                </div>`;
-            listDiv.appendChild(item);
-        });
-    } catch(e) { listDiv.innerHTML = "Permission Denied. Update Firebase Rules."; }
+        item.querySelector('.s-pay').onclick = async () => {
+            const d = document.getElementById(`date-${id}`).value;
+            await update(ref(db, `businesses/${id}/config`), { lastPaymentDate: new Date(d).toISOString(), active: true });
+            render();
+        };
+        item.querySelector('.s-tog').onclick = async () => {
+            await update(ref(db, `businesses/${id}/config`), { active: !biz.config.active });
+            render();
+        };
+        $('list').appendChild(item);
+    });
 }
 
 $('btn-create').onclick = async () => {
-    const id = $('n-id').value.toUpperCase().trim();
-    if(!id) return alert("Enter ID");
+    const id = $('n-id').value.toUpperCase();
     await set(ref(db, `businesses/${id}`), {
         config: { adminPassword: $('n-pass').value, active: true, lastPaymentDate: new Date().toISOString() },
         business: { name: $('n-name').value }

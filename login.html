@@ -1,37 +1,22 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POS Login</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StockSavvy - Login</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="login-wrap">
-  <div class="login-card">
-    <div class="login-logo">StockSavvy</div>
-    <p class="login-sub">Sign in to your store</p>
-
-    <div class="field">
-      <label>Business Code</label>
-      <input id="bizcode" placeholder="e.g. SHOP001" style="text-transform:uppercase">
-    </div>
-
-    <div class="field">
-      <label>Username</label>
-      <input id="username" placeholder="Enter username">
-    </div>
-
-    <div class="field">
-      <label>Password</label>
-      <input id="password" type="password" placeholder="••••••••">
-    </div>
-
-    <button class="btn btn-primary" id="login-btn">Sign In →</button>
-
-    <p style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:20px">
-      Need a business code? Contact<br>
-      <strong style="color:var(--accent)">Michael Web™</strong> — 08033441185
-    </p>
+  <div class="login-card card">
+    <h1 style="color:var(--accent); font-family:'Syne'; margin-bottom:5px;">StockSavvy</h1>
+    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:20px;">Sign in to your store</p>
+    <input id="bizcode" placeholder="BUSINESS CODE" style="text-transform:uppercase">
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button id="login-btn">Sign In →</button>
+    <p style="font-size:0.7rem; color:var(--muted); margin-top:20px;">Powered by Michael Web™</p>
   </div>
 </div>
 <script type="module" src="script.js"></script>
