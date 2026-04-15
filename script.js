@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, update, push, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+// 1. CONFIGURATION
 const firebaseConfig = {
   apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
   authDomain: "pos-store-29e58.firebaseapp.com",
@@ -12,99 +13,141 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 1. GLOBAL LOGOUT
+// 2. SHARED UTILITIES
 window.logout = () => { 
     sessionStorage.clear(); 
     window.location.href = 'login.html'; 
 };
 
-// 2. AUTHENTICATION GUARD
 const bizId = sessionStorage.getItem('bizId');
-const currentPath = window.location.pathname;
-const isPublicPage = currentPath.includes('login.html') || currentPath.includes('setup-business.html');
+const role = sessionStorage.getItem('role');
 
-if (!bizId && !isPublicPage) {
-    window.location.href = 'login.html';
-}
-
-// ==========================================
-// LOGIN PAGE LOGIC
-// ==========================================
-if (document.getElementById('login-btn')) {
-    document.getElementById('login-btn').onclick = async () => {
+// 3. LOGIN LOGIC
+const loginBtn = document.getElementById('login-btn');
+if (loginBtn) {
+    loginBtn.onclick = async () => {
         const biz = document.getElementById('bizcode').value.toUpperCase().trim();
         const user = document.getElementById('username').value.trim();
         const pass = document.getElementById('password').value;
-        if(!biz || !user || !pass) return alert("All fields required");
+
+        if(!biz || !user || !pass) return alert("Please fill all fields");
 
         try {
             const snap = await get(ref(db, `businesses/${biz}`));
-            if(!snap.exists()) return alert("Store not found or Invalid Business Code");
-            const data = snap.val();
+            if(!snap.exists()) return alert("Invalid Business Code");
             
-            if(data.config.active === false) return alert("Account Disabled. Contact Michael Web™.");
-
-            // 31+3 Logic
+            const data = snap.val();
+            // 31+3 Subscription Logic
             const lastPaid = new Date(data.config.lastPaymentDate);
             const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, 3, 12, 0, 0);
-            if(new Date() > expiry) {
+            
+            if(new Date() > expiry || data.config.active === false) {
                 await update(ref(db, `businesses/${biz}/config`), { active: false });
-                return alert("Subscription Expired. Please renew.");
+                return alert("Subscription Expired. Contact Michael Web™.");
             }
 
-            if((user === 'admin' && pass === data.config.adminPassword) || (data.cashiers?.[user]?.password === pass)) {
+            const isAdmin = user === 'admin' && pass === data.config.adminPassword;
+            const isCashier = data.cashiers && data.cashiers[user] && data.cashiers[user].password === pass;
+
+            if(isAdmin || isCashier) {
                 sessionStorage.setItem('bizId', biz);
                 sessionStorage.setItem('role', user);
                 window.location.href = 'index.html';
-            } else { alert("Wrong Username or Password"); }
-        } catch(e) { alert("Permission Denied: Check Internet Connection"); }
+            } else {
+                alert("Incorrect username or password");
+            }
+        } catch(e) { alert("Access Denied. Check your Firebase Rules."); }
     };
 }
 
-// ==========================================
-// MICHAEL WEB™ SETUP PANEL LOGIC
-// ==========================================
+// 4. SETUP BUSINESS (OWNER PANEL)
 if (document.getElementById('unlock')) {
     document.getElementById('unlock').onclick = () => {
-        if (document.getElementById('owner-pass').value === 'mwowner2026') {
+        if(document.getElementById('owner-pass').value === 'mwowner2026') {
             document.getElementById('manager').style.display = 'block';
             document.querySelector('.card').style.display = 'none';
-        } else { alert("Wrong Owner Password"); }
+        }
     };
 
     document.getElementById('create').onclick = async () => {
-        const newId = document.getElementById('new-id').value.toUpperCase().trim();
-        const newName = document.getElementById('new-name').value.trim();
-        if (!newId) return alert("Business ID is required");
-        await set(ref(db, `businesses/${newId}`), {
-            config: { active: true, lastPaymentDate: new Date().toISOString(), adminPassword: 'admin' },
-            business: { name: newName }
+        const id = document.getElementById('new-id').value.toUpperCase().trim();
+        const name = document.getElementById('new-name').value.trim();
+        if(!id || !name) return alert("Fill all fields");
+
+        await set(ref(db, `businesses/${id}`), {
+            business: { name: name, address: "", phone: "" },
+            config: { active: true, lastPaymentDate: new Date().toISOString(), adminPassword: "admin" }
         });
-        alert(`Success! Store ${newId} created. Default Admin pass is 'admin'.`);
+        // Also add to registry for the list to work
+        await set(ref(db, `business_registry/${id}`), { name: name });
+        alert("Business Created! Default Admin Password: admin");
     };
 }
 
-// ==========================================
-// DASHBOARD HEADER LOGIC (For Index, Sales, Admin)
-// ==========================================
-if (bizId && document.getElementById('c-name')) {
-    get(ref(db, `businesses/${bizId}/business`)).then(snap => {
-        if(snap.exists()) {
-            document.getElementById('c-name').innerText = snap.val().name || `Store: ${bizId}`;
-        }
+// 5. INVENTORY LOGIC
+if (document.getElementById('add-item')) {
+    onValue(ref(db, `businesses/${bizId}/inventory`), (snap) => {
+        const list = document.getElementById('inventory-list');
+        list.innerHTML = '';
+        snap.forEach(child => {
+            const item = child.val();
+            list.innerHTML += `<tr><td>${item.name}</td><td>₦${item.price}</td><td><button onclick="window.delItem('${child.key}')">Del</button></td></tr>`;
+        });
     });
+
+    document.getElementById('add-item').onclick = () => {
+        const name = document.getElementById('item-name').value;
+        const price = document.getElementById('item-price').value;
+        if(name && price) push(ref(db, `businesses/${bizId}/inventory`), { name, price: Number(price) });
+    };
+
+    window.delItem = (key) => remove(ref(db, `businesses/${bizId}/inventory/${key}`));
 }
 
-// ==========================================
-// INVENTORY PAGE LOGIC
-// ==========================================
-if (document.getElementById('add-item')) {
-    const list = document.getElementById('inventory-list');
-    
+// 6. SALES LOGIC
+if (document.getElementById('sell-item')) {
+    let cart = [];
     onValue(ref(db, `businesses/${bizId}/inventory`), (snap) => {
-        list.innerHTML = '';
-        if(!snap.exists()) {
-            list.innerHTML = '<tr><td colspan="3">No items yet</td></tr>';
+        const select = document.getElementById('sell-item');
+        select.innerHTML = '<option value="">-- Select --</option>';
+        window.tempInv = {};
+        snap.forEach(c => {
+            window.tempInv[c.key] = c.val();
+            select.innerHTML += `<option value="${c.key}">${c.val().name}</option>`;
+        });
+    });
+
+    document.getElementById('sell-btn').onclick = () => {
+        const id = document.getElementById('sell-item').value;
+        const qty = Number(document.getElementById('sell-qty').value) || 1;
+        if(!id) return;
+        const item = window.tempInv[id];
+        cart.push({ name: item.name, qty, price: item.price, total: item.price * qty });
+        renderCart();
+    };
+
+    function renderCart() {
+        const body = document.getElementById('sell-body');
+        let total = 0;
+        body.innerHTML = '';
+        cart.forEach(i => {
+            total += i.total;
+            body.innerHTML += `<tr><td>${i.name}</td><td>${i.qty}</td><td>₦${i.price}</td><td>₦${i.total}</td></tr>`;
+        });
+        document.getElementById('subtotal').innerText = total;
+    }
+}
+
+// 7. ADMIN PANEL TABS
+if (document.querySelector('.tab-bar')) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.tab-btn, .tab-panel').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        };
+    });
+}            list.innerHTML = '<tr><td colspan="3">No items yet</td></tr>';
             return;
         }
         snap.forEach(child => {
