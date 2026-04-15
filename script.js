@@ -12,11 +12,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// GLOBAL UTILS
-window.logout = () => { sessionStorage.clear(); window.location.href = 'login.html'; };
+// --- GLOBAL UTILITIES ---
+window.logout = () => {
+    sessionStorage.clear();
+    window.location.href = 'login.html';
+};
+
 const bizId = sessionStorage.getItem('bizId');
 
-// --- LOGIN LOGIC ---
+// --- 1. LOGIN PAGE LOGIC ---
 const loginBtn = document.getElementById('login-btn');
 if (loginBtn) {
     loginBtn.onclick = async () => {
@@ -24,12 +28,14 @@ if (loginBtn) {
         const user = document.getElementById('username').value.trim();
         const pass = document.getElementById('password').value;
 
+        if(!biz || !user || !pass) return alert("All fields required");
+
         try {
             const snap = await get(ref(db, `businesses/${biz}`));
-            if (!snap.exists()) return alert("Invalid Business Code");
+            if (!snap.exists()) return alert("Store not found");
             const data = snap.val();
 
-            // 31+3 Day Expiry Logic
+            // 31+3 Expiry Check
             const lastPaid = new Date(data.config.lastPaymentDate);
             const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, 3, 12, 0, 0);
             if (new Date() > expiry || data.config.active === false) {
@@ -39,69 +45,86 @@ if (loginBtn) {
 
             if ((user === 'admin' && pass === data.config.adminPassword) || (data.cashiers?.[user]?.password === pass)) {
                 sessionStorage.setItem('bizId', biz);
+                sessionStorage.setItem('role', user);
                 window.location.href = 'index.html';
-            } else { alert("Wrong credentials"); }
-        } catch (e) { alert("Error connecting to database"); }
+            } else { alert("Invalid Credentials"); }
+        } catch (e) { alert("Connection Error. Check Firebase Rules."); }
     };
 }
 
-// --- SETUP BUSINESS (OWNER PANEL) ---
-if (document.getElementById('unlock')) {
-    document.getElementById('unlock').onclick = () => {
+// --- 2. SETUP BUSINESS (OWNER PANEL) ---
+const unlockBtn = document.getElementById('unlock');
+if (unlockBtn) {
+    unlockBtn.onclick = () => {
         if (document.getElementById('owner-pass').value === 'mwowner2026') {
             document.getElementById('manager').style.display = 'block';
-            document.querySelector('.card').style.display = 'none';
+            unlockBtn.parentElement.style.display = 'none';
             loadBusinessList();
-        } else { alert("Access Denied"); }
+        } else { alert("Incorrect Password"); }
     };
 
-    document.getElementById('create').onclick = async () => {
-        const id = document.getElementById('new-id').value.toUpperCase().trim();
-        const name = document.getElementById('new-name').value.trim();
-        if (!id || !name) return alert("Fill all fields");
+    const createBtn = document.getElementById('create');
+    if (createBtn) {
+        createBtn.onclick = async () => {
+            const id = document.getElementById('new-id').value.toUpperCase().trim();
+            const name = document.getElementById('new-name').value.trim();
+            if (!id || !name) return alert("Enter ID and Name");
 
-        // 1. Save secure data
-        await set(ref(db, `businesses/${id}`), {
-            config: { active: true, lastPaymentDate: new Date().toISOString(), adminPassword: "admin" },
-            business: { name: name }
-        });
-        // 2. Save to public registry (This makes the list work!)
-        await set(ref(db, `business_registry/${id}`), { name: name });
-        
-        alert("Business Created!");
-        loadBusinessList();
-    };
+            await set(ref(db, `businesses/${id}`), {
+                config: { active: true, lastPaymentDate: new Date().toISOString(), adminPassword: "admin" },
+                business: { name: name }
+            });
+            await set(ref(db, `business_registry/${id}`), { name: name });
+            alert("Business Created!");
+            loadBusinessList();
+        };
+    }
+}
 
-    async function loadBusinessList() {
-        const listDiv = document.getElementById('biz-list');
-        listDiv.innerHTML = "Loading...";
+async function loadBusinessList() {
+    const listDiv = document.getElementById('biz-list');
+    if (!listDiv) return;
+    listDiv.innerHTML = "Loading...";
+    try {
         const snap = await get(ref(db, 'business_registry'));
         listDiv.innerHTML = "";
         if (snap.exists()) {
             snap.forEach(child => {
-                const id = child.key;
-                const name = child.val().name;
                 listDiv.innerHTML += `
-                    <div class="card" style="margin-top:10px; border-left:5px solid var(--accent)">
-                        <strong>${id}</strong> - ${name}
+                    <div class="card" style="margin-top:10px; border-left:4px solid var(--accent)">
+                        <strong>ID: ${child.key}</strong><br>Name: ${child.val().name}
                     </div>`;
             });
         }
-    }
+    } catch(e) { listDiv.innerHTML = "Error loading list. Check Rules."; }
 }
 
-// --- INVENTORY LOGIC ---
-if (document.getElementById('add-item')) {
+// --- 3. INVENTORY PAGE LOGIC ---
+const addItemBtn = document.getElementById('add-item');
+if (addItemBtn && bizId) {
     onValue(ref(db, `businesses/${bizId}/inventory`), (snap) => {
         const list = document.getElementById('inventory-list');
+        if (!list) return;
         list.innerHTML = "";
         snap.forEach(c => {
             list.innerHTML += `<tr><td>${c.val().name}</td><td>₦${c.val().price}</td></tr>`;
         });
     });
-    document.getElementById('add-item').onclick = () => {
+
+    addItemBtn.onclick = () => {
         const name = document.getElementById('item-name').value;
         const price = document.getElementById('item-price').value;
         if (name && price) push(ref(db, `businesses/${bizId}/inventory`), { name, price: Number(price) });
     };
+}
+
+// --- 4. SALES PAGE LOGIC ---
+const sellItemSelect = document.getElementById('sell-item');
+if (sellItemSelect && bizId) {
+    onValue(ref(db, `businesses/${bizId}/inventory`), (snap) => {
+        sellItemSelect.innerHTML = '<option value="">-- Select Item --</option>';
+        snap.forEach(c => {
+            sellItemSelect.innerHTML += `<option value="${c.key}">${c.val().name}</option>`;
+        });
+    });
 }
