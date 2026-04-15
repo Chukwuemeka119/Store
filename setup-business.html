@@ -1,94 +1,24 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MW™ Manager - Secure</title>
-    <style>
-        body { background: #0a0a0f; color: #fff; font-family: monospace; padding: 20px; }
-        .card { background: #13131a; border: 1px solid #2a2a3a; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-        input { background: #1c1c26; border: 1px solid #2a2a3a; color: #fff; padding: 8px; width: 100%; box-sizing: border-box; margin: 5px 0; }
-        button { background: #7c6aff; color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; border-radius: 4px; }
-        .flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a3a; padding: 10px 0; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="auth-gate">
-        <h2>Michael Web™ Owner</h2>
-        <input type="password" id="m-pass" placeholder="Owner Password">
-        <button id="btn-gate">Unlock</button>
+    <div class="card">
+        <h2>MW Owner Panel</h2>
+        <input type="password" id="owner-pass" placeholder="Owner Pass">
+        <button id="unlock">Unlock</button>
     </div>
-
-    <div id="panel" style="display:none">
+    <div id="manager" style="display:none">
         <div class="card">
-            <h3>New Store</h3>
-            <input id="n-id" placeholder="Business ID (e.g. SHOP01)">
-            <input id="n-name" placeholder="Store Name">
-            <input id="n-pass" type="password" placeholder="Admin Password">
-            <button id="btn-create">Create & Activate</button>
+            <h3>New Business</h3>
+            <input id="new-id" placeholder="ID (e.g. SHOP01)">
+            <input id="new-name" placeholder="Store Name">
+            <button id="create">Register</button>
         </div>
-        <div id="list"></div>
+        <div id="biz-list"></div>
     </div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-const conf = {
-  apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
-  authDomain: "pos-store-29e58.firebaseapp.com",
-  databaseURL: "https://pos-store-29e58-default-rtdb.firebaseio.com",
-  projectId: "pos-store-29e58",
-  appId: "1:494046387333:web:44ef67eeac8e40e4f19dec"
-};
-const app = initializeApp(conf, 'manager');
-const db = getDatabase(app);
-
-const $ = i => document.getElementById(i);
-
-$('btn-gate').onclick = () => {
-    if($('m-pass').value === 'mwowner2026') {
-        $('auth-gate').style.display='none';
-        $('panel').style.display='block';
-        render();
-    }
-};
-
-async function render() {
-    const snap = await get(ref(db, 'businesses'));
-    const data = snap.val() || {};
-    $('list').innerHTML = '';
-    Object.entries(data).forEach(([id, biz]) => {
-        const item = document.createElement('div');
-        item.className = 'flex';
-        item.innerHTML = `
-            <div><b>${id}</b><br><small>${biz.business.name}</small></div>
-            <div>
-                <input type="date" id="date-${id}" style="width:130px" value="${biz.config.lastPaymentDate.split('T')[0]}">
-                <button class="s-pay" style="width:80px">Paid</button>
-                <button class="s-tog" style="width:80px;background:${biz.config.active?'#ff4d6d':'#4dffb4'}">${biz.config.active?'Kill':'Wake'}</button>
-            </div>`;
-        
-        item.querySelector('.s-pay').onclick = async () => {
-            const d = document.getElementById(`date-${id}`).value;
-            await update(ref(db, `businesses/${id}/config`), { lastPaymentDate: new Date(d).toISOString(), active: true });
-            render();
-        };
-        item.querySelector('.s-tog').onclick = async () => {
-            await update(ref(db, `businesses/${id}/config`), { active: !biz.config.active });
-            render();
-        };
-        $('list').appendChild(item);
-    });
-}
-
-$('btn-create').onclick = async () => {
-    const id = $('n-id').value.toUpperCase();
-    await set(ref(db, `businesses/${id}`), {
-        config: { adminPassword: $('n-pass').value, active: true, lastPaymentDate: new Date().toISOString() },
-        business: { name: $('n-name').value }
-    });
-    render();
-};
-</script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

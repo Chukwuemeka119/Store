@@ -1,6 +1,5 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,17 +7,17 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="login-wrap">
-  <div class="login-card card">
-    <h1 style="color:var(--accent); font-family:'Syne'; margin-bottom:5px;">StockSavvy</h1>
-    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:20px;">Sign in to your store</p>
-    <input id="bizcode" placeholder="BUSINESS CODE" style="text-transform:uppercase">
-    <input id="username" placeholder="Username">
-    <input id="password" type="password" placeholder="Password">
-    <button id="login-btn">Sign In →</button>
-    <p style="font-size:0.7rem; color:var(--muted); margin-top:20px;">Powered by Michael Web™</p>
-  </div>
-</div>
-<script type="module" src="script.js"></script>
+    <div style="display:flex; align-items:center; justify-content:center; min-height:90vh;">
+        <div class="card">
+            <h1 style="color:var(--accent); text-align:center; font-family:'Syne';">StockSavvy</h1>
+            <p style="text-align:center; color:var(--muted); margin-bottom:20px;">Secure POS Login</p>
+            <input id="bizcode" placeholder="BUSINESS CODE" style="text-transform:uppercase">
+            <input id="username" placeholder="Username">
+            <input id="password" type="password" placeholder="Password">
+            <button id="login-btn">Sign In</button>
+            <p style="text-align:center; font-size:11px; margin-top:20px; color:var(--muted);">Managed by Michael Web™</p>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "businesses": {
+      "$bid": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "analytics": {
+      ".read": false,
+      ".write": true
+    }
+  }
+}

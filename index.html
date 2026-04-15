@@ -1,54 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POS Dashboard</title>
-<link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<nav class="navbar">
-  <div class="store-info">
-    <h2 id="c-name"></h2>
-    <p id="c-address"></p>
-    <p id="c-phone"></p>
-  </div>
-  <div class="nav-links">
-    <a href="inventory.html">Inventory</a>
-    <a href="sales.html">Sales</a>
-    <a href="admin.html">Admin</a>
-  </div>
-</nav>
-
-<h1 class="page-title">Welcome <span>back</span></h1>
-
-<div style="display:flex;gap:12px;flex-wrap:wrap">
-  <a href="inventory.html" style="text-decoration:none;flex:1;min-width:180px">
-    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="font-size:1.6rem;margin-bottom:10px">📦</div>
-      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Inventory</div>
-      <div style="font-size:0.75rem;color:var(--muted)">Manage stock & items</div>
+    <nav class="navbar">
+        <h2>StockSavvy</h2>
+        <div class="nav-links">
+            <a href="inventory.html">Inventory</a>
+            <a href="sales.html">Sales</a>
+            <a href="#" onclick="logout()" style="color:var(--danger)">Sign Out</a>
+        </div>
+    </nav>
+    <div class="card"><h3>Dashboard</h3><p>Manage your store effectively.</p></div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-width:500px; margin:auto;">
+        <button onclick="location.href='sales.html'">New Sale</button>
+        <button onclick="location.href='inventory.html'">Stock</button>
     </div>
-  </a>
-  <a href="sales.html" style="text-decoration:none;flex:1;min-width:180px">
-    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="font-size:1.6rem;margin-bottom:10px">🧾</div>
-      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Sales</div>
-      <div style="font-size:0.75rem;color:var(--muted)">Process transactions</div>
-    </div>
-  </a>
-  <a href="admin.html" style="text-decoration:none;flex:1;min-width:180px">
-    <div class="card" style="cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="font-size:1.6rem;margin-bottom:10px">⚙️</div>
-      <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:4px">Admin</div>
-      <div style="font-size:0.75rem;color:var(--muted)">Manage cashiers</div>
-    </div>
-  </a>
-</div>
-
-<br>
-<button class="btn btn-danger" id="logout-btn">Sign Out</button>
-
-<script type="module" src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
