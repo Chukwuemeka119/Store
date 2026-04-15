@@ -17,7 +17,7 @@ window.logout = () => { sessionStorage.clear(); window.location.href = 'login.ht
 const bizId = sessionStorage.getItem('bizId');
 const role = sessionStorage.getItem('role');
 
-// Display Store Name
+// Display Store Name & Address (Matches your navbar IDs)
 if (bizId && document.getElementById('c-name')) {
     get(ref(db, `businesses/${bizId}/business`)).then(s => {
         if(s.exists()) {
@@ -27,7 +27,7 @@ if (bizId && document.getElementById('c-name')) {
     });
 }
 
-// --- 1. LOGIN & EXPIRATION (31+3) ---
+// --- 1. LOGIN & EXPIRATION (31+3 LOGIC) ---
 const loginBtn = document.getElementById('login-btn');
 if (loginBtn) {
     loginBtn.onclick = async () => {
@@ -37,9 +37,10 @@ if (loginBtn) {
 
         try {
             const snap = await get(ref(db, `businesses/${biz}`));
-            if (!snap.exists()) return alert("Store not found");
+            if (!snap.exists()) return alert("Invalid Business Code");
             const data = snap.val();
 
+            // Expiry Check
             const lastPaid = new Date(data.config.lastPaymentDate);
             const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, 3, 12, 0, 0);
             if (new Date() > expiry || data.config.active === false) {
@@ -51,12 +52,12 @@ if (loginBtn) {
                 sessionStorage.setItem('bizId', biz);
                 sessionStorage.setItem('role', user);
                 window.location.href = 'index.html';
-            } else { alert("Invalid Credentials"); }
-        } catch (e) { alert("Error connecting"); }
+            } else { alert("Wrong credentials"); }
+        } catch (e) { alert("Connection Error"); }
     };
 }
 
-// --- 2. INVENTORY (FIXED: Added Stock Amount) ---
+// --- 2. INVENTORY (RETAINED: Add Item + Delete) ---
 const addItemBtn = document.getElementById('add-item');
 if (addItemBtn && bizId) {
     onValue(ref(db, `businesses/${bizId}/inventory`), (snap) => {
@@ -69,8 +70,7 @@ if (addItemBtn && bizId) {
                 <tr>
                     <td>${item.name}</td>
                     <td>₦${item.price}</td>
-                    <td>${item.stock || 0}</td>
-                    <td><button onclick="window.delItem('${c.key}')" style="background:var(--danger); padding:4px 8px; width:auto;">Delete</button></td>
+                    <td><button onclick="window.delItem('${c.key}')" style="background:var(--danger); padding:5px; width:auto; font-size:12px;">Delete</button></td>
                 </tr>`;
         });
     });
@@ -78,47 +78,59 @@ if (addItemBtn && bizId) {
     addItemBtn.onclick = async () => {
         const name = document.getElementById('item-name').value;
         const price = document.getElementById('item-price').value;
-        const stock = document.getElementById('item-stock')?.value || 0; // Fixed: Captures amount
         if (name && price) {
-            await push(ref(db, `businesses/${bizId}/inventory`), { 
-                name, 
-                price: Number(price), 
-                stock: Number(stock) 
-            });
-            alert("Stock Added!");
+            await push(ref(db, `businesses/${bizId}/inventory`), { name, price: Number(price) });
+            document.getElementById('item-name').value = '';
+            document.getElementById('item-price').value = '';
         }
     };
-    window.delItem = (id) => { if(confirm("Delete item?")) remove(ref(db, `businesses/${bizId}/inventory/${id}`)); };
+    window.delItem = (id) => { if(confirm("Remove item?")) remove(ref(db, `businesses/${bizId}/inventory/${id}`)); };
 }
 
-// --- 3. ADMIN PAGE (SECURE PASSWORD CHANGE) ---
+// --- 3. ADMIN PAGE (TABS & SECURITY) ---
 if (window.location.pathname.includes('admin.html')) {
-    if (role !== 'admin') { window.location.href = 'index.html'; } // Admin only
+    if (role !== 'admin') { window.location.href = 'index.html'; } // Security Gate
 
-    // Tab Switching
+    // Tab Switching Logic
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.tab-btn, .tab-panel').forEach(el => el.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            const target = document.getElementById('tab-' + btn.dataset.tab);
+            if(target) target.classList.add('active');
         };
     });
 
-    // Change Admin Password
-    const savePassBtn = document.getElementById('save-biz-btn');
-    if (savePassBtn) {
-        savePassBtn.onclick = async () => {
+    // Save Admin Password (Matches your 'new-pass' and 'confirm-pass' IDs)
+    const saveBizBtn = document.getElementById('save-biz-btn');
+    if (saveBizBtn) {
+        saveBizBtn.onclick = async () => {
             const newP = document.getElementById('new-pass').value;
             const confP = document.getElementById('confirm-pass').value;
+            
+            // Check if we are updating details or password
+            const bizName = document.getElementById('biz-name').value;
+            if (bizName) {
+                await update(ref(db, `businesses/${bizId}/business`), { 
+                    name: bizName, 
+                    address: document.getElementById('biz-address').value,
+                    phone: document.getElementById('biz-phone').value
+                });
+            }
+
             if (newP && newP === confP) {
                 await update(ref(db, `businesses/${bizId}/config`), { adminPassword: newP });
-                alert("Admin Password Changed!");
-            } else { alert("Passwords don't match!"); }
+                alert("Settings Updated!");
+            } else if (newP !== confP) {
+                alert("Passwords do not match!");
+            } else {
+                alert("Details Updated!");
+            }
         };
     }
 }
 
-// --- 4. SETUP TOOL (OWNER PANEL) ---
+// --- 4. SETUP BUSINESS (OWNER PANEL) ---
 const unlockBtn = document.getElementById('unlock');
 if (unlockBtn) {
     unlockBtn.onclick = () => {
@@ -128,9 +140,12 @@ if (unlockBtn) {
             loadBusinessList();
         }
     };
+
     document.getElementById('create').onclick = async () => {
         const id = document.getElementById('new-id').value.toUpperCase().trim();
         const name = document.getElementById('new-name').value.trim();
+        if(!id || !name) return alert("Missing Info");
+        
         await set(ref(db, `businesses/${id}`), {
             config: { active: true, lastPaymentDate: new Date().toISOString(), adminPassword: "admin" },
             business: { name: name }
@@ -148,7 +163,7 @@ async function loadBusinessList() {
     listDiv.innerHTML = "";
     if (snap.exists()) {
         snap.forEach(c => {
-            listDiv.innerHTML += `<div class="card" style="margin-top:10px;"><strong>${c.key}</strong>: ${c.val().name}</div>`;
+            listDiv.innerHTML += `<div class="card" style="margin-top:10px; border-left:4px solid var(--accent)"><strong>${c.key}</strong>: ${c.val().name}</div>`;
         });
     }
 }
@@ -162,6 +177,4 @@ if (sellSel && bizId) {
             sellSel.innerHTML += `<option value="${c.key}">${c.val().name} (₦${c.val().price})</option>`;
         });
     });
-                }    const listDiv = document.getElementById('biz-list');
-    if (!listDiv) return;
-    const snap = await get(ref(db, '
+}

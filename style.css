@@ -28,6 +28,11 @@ button:active { transform: scale(0.97); }
 table { width: 100%; border-collapse: collapse; min-width: 600px; }
 th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
 th { background: var(--surface2); color: var(--muted); }
+.tab-bar { display: flex; gap: 5px; margin-bottom: 20px; overflow-x: auto; }
+.tab-btn { flex: 1; padding: 10px; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; width: auto; }
+.tab-btn.active { background: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 @media (max-width: 600px) {
     .navbar { flex-direction: column; gap: 10px; text-align: center; }
     .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }

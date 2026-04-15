@@ -6,7 +6,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <nav class="navbar">
   <div class="store-info">
     <h2 id="c-name"></h2>
@@ -18,45 +17,29 @@
     <a href="sales.html">Sales</a>
   </div>
 </nav>
-
 <h1 class="page-title"><span>Admin</span></h1>
-
-<!-- TAB BAR -->
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="cashiers">Cashiers</button>
   <button class="tab-btn" data-tab="history">Sales History</button>
   <button class="tab-btn" data-tab="business">Business Details</button>
 </div>
-
-<!-- ── CASHIERS TAB ── -->
 <div class="tab-panel active" id="tab-cashiers">
   <div class="card" style="max-width:480px">
     <div class="section-label">Create New Cashier</div>
-    <div class="field">
-      <label>Username</label>
-      <input id="cashier-name" placeholder="Enter username">
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>Password</label>
-      <input id="cashier-pass" type="password" placeholder="••••••••">
-    </div>
-    <button class="btn btn-primary" id="create-cashier-btn" style="margin-top:20px;width:100%">Create Cashier</button>
+    <div class="field"><label>Username</label><input id="cashier-name" placeholder="Enter username"></div>
+    <div class="field" style="margin-top:12px"><label>Password</label><input id="cashier-pass" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-primary" id="add-cashier-btn" style="margin-top:20px;width:100%">Create Cashier</button>
   </div>
-
   <div style="margin-top:28px">
     <div class="section-label">Cashier Accounts</div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Username</th><th>Action</th></tr></thead>
-        <tbody id="cashier-list">
-          <tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">Loading...</td></tr>
-        </tbody>
+        <tbody id="cashier-list"><tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
-
-<!-- ── HISTORY TAB ── -->
 <div class="tab-panel" id="tab-history">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
     <div class="tab-bar" style="margin-bottom:0">
@@ -66,50 +49,25 @@
     </div>
     <button class="btn btn-danger" id="clear-history-btn">Clear All History</button>
   </div>
-  <div id="history-content">
-    <div style="color:var(--muted);text-align:center;padding:40px">Loading history...</div>
-  </div>
+  <div id="history-content"><div style="color:var(--muted);text-align:center;padding:40px">Loading history...</div></div>
 </div>
-
-<!-- ── BUSINESS TAB ── -->
 <div class="tab-panel" id="tab-business">
   <div class="card" style="max-width:480px">
     <div class="section-label">Business Details</div>
-    <div class="field">
-      <label>Store Name</label>
-      <input id="biz-name" placeholder="Store name">
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>Address</label>
-      <input id="biz-address" placeholder="Address">
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>Phone</label>
-      <input id="biz-phone" placeholder="Phone number">
-    </div>
+    <div class="field"><label>Store Name</label><input id="biz-name" placeholder="Store name"></div>
+    <div class="field" style="margin-top:12px"><label>Address</label><input id="biz-address" placeholder="Address"></div>
+    <div class="field" style="margin-top:12px"><label>Phone</label><input id="biz-phone" placeholder="Phone number"></div>
     <button class="btn btn-primary" id="save-biz-btn" style="margin-top:20px;width:100%">Save Changes</button>
   </div>
-
   <div class="card" style="max-width:480px;margin-top:24px">
     <div class="section-label">Change Admin Password</div>
-    <div class="field">
-      <label>Current Password</label>
-      <input id="current-pass" type="password" placeholder="••••••••">
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>New Password</label>
-      <input id="new-pass" type="password" placeholder="••••••••">
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>Confirm New Password</label>
-      <input id="confirm-pass" type="password" placeholder="••••••••">
-    </div>
+    <div class="field"><label>Current Password</label><input id="current-pass" type="password" placeholder="••••••••"></div>
+    <div class="field" style="margin-top:12px"><label>New Password</label><input id="new-pass" type="password" placeholder="••••••••"></div>
+    <div class="field" style="margin-top:12px"><label>Confirm New Password</label><input id="confirm-pass" type="password" placeholder="••••••••"></div>
     <button class="btn btn-danger" id="change-pass-btn" style="margin-top:20px;width:100%">Change Password</button>
   </div>
 </div>
-
 <a href="index.html" class="back-link">← Back to Dashboard</a>
-
 <script type="module" src="script.js"></script>
 </body>
 </html>

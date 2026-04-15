@@ -6,7 +6,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <nav class="navbar">
   <div class="store-info">
     <h2 id="c-name"></h2>
@@ -19,85 +18,27 @@
     <a href="admin.html">Admin</a>
   </div>
 </nav>
-
 <h1 class="page-title"><span>New Sale</span></h1>
-
 <div class="card">
   <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace">Add Item to Cart</div>
   <div class="field-row" style="margin-bottom:16px">
-    <div class="field">
-      <label>Customer Name</label>
-      <input id="customer-name" placeholder="e.g. John Doe (optional)">
-    </div>
+    <div class="field"><label>Customer Name</label><input id="customer-name" placeholder="e.g. John Doe (optional)"></div>
   </div>
   <div class="field-row">
-    <div class="field">
-      <label>Select Item</label>
-      <select id="sell-item"></select>
-    </div>
-    <div class="field" style="max-width:140px">
-      <label>Quantity</label>
-      <input id="sell-qty" type="number" placeholder="1" min="1">
-    </div>
+    <div class="field"><label>Select Item</label><select id="sell-item"></select></div>
+    <div class="field" style="max-width:140px"><label>Quantity</label><input id="sell-qty" type="number" placeholder="1" min="1"></div>
     <button id="sell-btn" class="btn btn-primary" style="align-self:flex-end">+ Add to Cart</button>
     <button id="print-btn" class="btn btn-success" style="align-self:flex-end">🖨 Print Receipt</button>
   </div>
 </div>
-
 <div class="table-wrap">
   <table>
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Qty</th>
-        <th>Unit Price</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-    <tbody id="sell-body">
-      <tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr>
-    </tbody>
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+    <tbody id="sell-body"><tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr></tbody>
   </table>
 </div>
-
-<div class="subtotal-bar">
-  <div class="label">Subtotal</div>
-  <div class="amount">₦<span id="subtotal">0</span></div>
-</div>
-
-<!-- Receipt -->
-<div id="receipt">
-  <h2 id="r-store"></h2>
-  <p id="r-address"></p>
-  <p id="r-phone"></p>
-
-  <div class="receipt-meta">
-    <div>Customer: <span id="r-customer"></span></div>
-    <div>Cashier: <span id="r-cashier"></span></div>
-    <div>Date: <span id="r-date"></span></div>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
-      </thead>
-      <tbody id="r-items"></tbody>
-    </table>
-  </div>
-
-  <div class="receipt-subtotal">Subtotal: ₦<span id="r-subtotal"></span></div>
-  <div class="receipt-total">Total: ₦<span id="r-total"></span></div>
-
-  <div class="receipt-powered">
-    <span>Powered by</span>
-    <strong>Michael Web™</strong>
-  </div>
-
-</div>
-
+<div class="subtotal-bar"><div class="label">Subtotal</div><div class="amount">₦<span id="subtotal">0</span></div></div>
 <a href="index.html" class="back-link">← Back to Dashboard</a>
-
 <script type="module" src="script.js"></script>
 </body>
 </html>
