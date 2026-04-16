@@ -327,6 +327,27 @@ function wireBusiness() {
     const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
     update(bizRef('business'), { name: n, address: a, phone: p });
   });
+  on('change-pass-btn', 'click', handleChangePassword);
+}
+
+async function handleChangePassword() {
+  const currentPass = $('current-pass')?.value.trim();
+  const newPass = $('new-pass')?.value.trim();
+  const confirmPass = $('confirm-pass')?.value.trim();
+  
+  if (!currentPass || !newPass || !confirmPass) { alert('Please fill in all password fields.'); return; }
+  if (newPass.length < 4) { alert('New password must be at least 4 characters.'); return; }
+  if (newPass !== confirmPass) { alert('New passwords do not match.'); return; }
+  
+  const correct = await getAdminPw();
+  if (currentPass !== correct) { alert('Current password is incorrect.'); return; }
+  
+  try {
+    await update(bizRef('config/adminPassword'), newPass);
+    adminCache = newPass;
+    alert('✓ Password changed successfully!');
+    $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
+  } catch (e) { alert('Error changing password: ' + e.message); }
 }
 
 function wireHistory() {
@@ -340,6 +361,17 @@ function wireHistory() {
       btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
     });
   });
+  on('clear-history-btn', 'click', handleClearHistory);
+}
+
+async function handleClearHistory() {
+  if (!await verifyAdmin('🔐 Enter admin password to clear all sales history:')) return;
+  if (!confirm('⚠️ This will permanently delete ALL sales records. Continue?')) return;
+  try {
+    await remove(bizRef('sales'));
+    allSales = [];
+    renderHistory();
+  } catch (e) { alert('Error clearing history: ' + e.message); }
 }
 
 // FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
