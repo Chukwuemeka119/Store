@@ -118,7 +118,6 @@
     </div>
   </div>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -176,6 +175,7 @@ $('create-btn').addEventListener('click', async () => {
     const snap = await get(ref(db, `businesses/${bizId}/config`));
     if (snap.exists()) { showStatus(`Code "${bizId}" already exists. Choose a different code.`, false); return; }
 
+    // Save to Secure Vault
     await set(ref(db, `businesses/${bizId}`), {
       config: {
         adminPassword: adminPw,
@@ -184,6 +184,12 @@ $('create-btn').addEventListener('click', async () => {
         createdAt: new Date().toISOString(),
       },
       business: { name, address: address || '', phone: phone || '' }
+    });
+
+    // Save Safe Copy to Public Directory
+    await set(ref(db, `directory/${bizId}`), {
+      config: { active: true, lastPaymentDate: new Date(payDate).toISOString() },
+      business: { name, phone: phone || '' }
     });
 
     showStatus(`✓ "${name}" created!\nCode: ${bizId} | Admin pass: ${adminPw}\nExpiry: ${getExpiry(payDate)}`, true);
@@ -196,7 +202,8 @@ $('create-btn').addEventListener('click', async () => {
 
 function getExpiry(payDateStr) {
   const d = new Date(payDateStr);
-  const expiry = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate() + 3);
+  // STRICT 31+3 MATH APPLIED HERE
+  const expiry = new Date(d.getTime() + (34 * 24 * 60 * 60 * 1000));
   return expiry.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
 }
 
@@ -206,7 +213,8 @@ window.loadList = async function() {
   list.innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const snap = await get(ref(db, 'businesses'));
+    // FETCHING FROM DIRECTORY INSTEAD OF BUSINESSES
+    const snap = await get(ref(db, 'directory'));
     const data  = snap.val() || {};
     const entries = Object.entries(data);
 
@@ -243,6 +251,11 @@ window.markPaid = async (id) => {
       lastPaymentDate: new Date(dateVal).toISOString(),
       active: true
     });
+    // UPDATE DIRECTORY AS WELL
+    await update(ref(db, `directory/${id}/config`), {
+      lastPaymentDate: new Date(dateVal).toISOString(),
+      active: true
+    });
     loadList();
   } catch (e) { alert('Error: ' + e.message); }
 };
@@ -252,6 +265,8 @@ window.toggleStatus = async (id, currentlyActive) => {
   if (!confirm(`${action} business "${id}"? ${currentlyActive ? 'They will be kicked out immediately.' : 'They will regain access.'}`)) return;
   try {
     await update(ref(db, `businesses/${id}/config`), { active: !currentlyActive });
+    // UPDATE DIRECTORY AS WELL
+    await update(ref(db, `directory/${id}/config`), { active: !currentlyActive });
     loadList();
   } catch (e) { alert('Error: ' + e.message); }
 };
