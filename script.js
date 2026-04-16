@@ -61,6 +61,7 @@ if (PAGE !== 'login.html' && getBizId()) {
 
 // ── ADMIN PASSWORD HELPERS ────────────────────────────────────────────────────
 async function getAdminPw() {
+  if (adminCache) return adminCache;
   try {
     const snap = await get(bizRef('config/adminPassword'));
     adminCache = snap.exists() ? snap.val() : 'admin123';
@@ -244,6 +245,7 @@ function updateCartUI() {
 
 window.removeFromCart = (idx) => { cart.splice(idx, 1); updateCartUI(); };
 
+// FIX: ENHANCED PRINT DETAIL
 async function handlePrint() {
   const validCart = cart.filter(Boolean);
   if (!validCart.length) { alert('Cart is empty.'); return; }
@@ -303,30 +305,7 @@ function wireADMIN() {
       btn.classList.add('active'); $('tab-' + btn.dataset.tab)?.classList.add('active');
     });
   });
-  wireCashiers(); 
-  wireHistory(); 
-  wireBusiness();
-  wireAdminPassword(); // FIX: Added password change listener
-}
-
-function wireAdminPassword() {
-  on('save-pw-btn', 'click', async () => {
-    const current = $('current-pass').value;
-    const next    = $('new-pass').value;
-    const confirm = $('confirm-pass').value;
-    
-    if(!current || !next || !confirm) { alert('Please fill all password fields.'); return; }
-    if(next !== confirm) { alert('New passwords do not match!'); return; }
-    
-    const actual = await getAdminPw();
-    if(current !== actual) { alert('Current password incorrect.'); return; }
-    
-    try {
-      await update(bizRef('config'), { adminPassword: next });
-      alert('Admin password updated successfully!');
-      $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
-    } catch (e) { alert('Update failed: ' + e.message); }
-  });
+  wireCashiers(); wireHistory(); wireBusiness();
 }
 
 function wireCashiers() {
@@ -337,7 +316,7 @@ function wireCashiers() {
   onValue(bizRef('cashiers'), snap => {
     const list = $('cashier-list'); if (!list) return;
     const items = []; snap.forEach(c => items.push([c.key, c.val()]));
-    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
+    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
   });
 }
 window.deleteCashier = (id) => remove(bizRef('cashiers/' + id));
@@ -346,7 +325,7 @@ function wireBusiness() {
   if ($('biz-name')) { $('biz-name').value = STORE.name; $('biz-address').value = STORE.address; $('biz-phone').value = STORE.phone; }
   on('save-biz-btn', 'click', () => {
     const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
-    update(bizRef('business'), { name: n, address: a, phone: p }).then(() => alert('Store details updated!'));
+    update(bizRef('business'), { name: n, address: a, phone: p });
   });
 }
 
@@ -363,6 +342,7 @@ function wireHistory() {
   });
 }
 
+// FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
 function renderHistory() {
   const container = $('history-content'); if (!container) return;
   if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
@@ -383,7 +363,7 @@ function renderHistory() {
       return `
         <tr>
           <td style="color:var(--muted); font-size:0.75rem">${time}</td>
-          <td><span style="font-weight:600; color:var(--accent)">${clean(sale.cashier || 'Admin')}</span></td>
+          <td><span style="font-weight:600; color:var(--primary)">${clean(sale.cashier || 'Admin')}</span></td>
           <td>${clean(sale.customer || 'Walk-in')}</td>
           <td style="font-size:0.7rem; color:var(--muted)">${itemsText}</td>
           <td style="color:var(--accent3); font-weight:600">₦${(Number(sale.total) || 0).toLocaleString()}</td>
