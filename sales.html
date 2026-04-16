@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POS Sales</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockSavvy — Sales</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <nav class="navbar">
@@ -16,29 +17,94 @@
     <a href="index.html">Dashboard</a>
     <a href="inventory.html">Inventory</a>
     <a href="admin.html">Admin</a>
+    <a href="#" id="logout-link" class="danger">Sign Out</a>
   </div>
 </nav>
+
 <h1 class="page-title"><span>New Sale</span></h1>
+
 <div class="card">
-  <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:16px;font-family:'DM Mono',monospace">Add Item to Cart</div>
-  <div class="field-row" style="margin-bottom:16px">
-    <div class="field"><label>Customer Name</label><input id="customer-name" placeholder="e.g. John Doe (optional)"></div>
+  <div class="section-label">Add Item to Cart</div>
+
+  <!-- Customer name row -->
+  <div class="field-row" style="margin-bottom:14px">
+    <div class="field">
+      <label>Customer Name</label>
+      <input id="customer-name" placeholder="e.g. John Doe (optional)"/>
+    </div>
   </div>
+
+  <!-- Item selection row -->
   <div class="field-row">
-    <div class="field"><label>Select Item</label><select id="sell-item"></select></div>
-    <div class="field" style="max-width:140px"><label>Quantity</label><input id="sell-qty" type="number" placeholder="1" min="1"></div>
+    <div class="field">
+      <label>Select Item</label>
+      <select id="sell-item">
+        <option value="">-- Select Item --</option>
+      </select>
+    </div>
+    <div class="field" style="max-width:140px">
+      <label>Quantity</label>
+      <input id="sell-qty" type="number" placeholder="1" min="1"/>
+    </div>
     <button id="sell-btn" class="btn btn-primary" style="align-self:flex-end">+ Add to Cart</button>
     <button id="print-btn" class="btn btn-success" style="align-self:flex-end">🖨 Print Receipt</button>
   </div>
 </div>
+
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
-    <tbody id="sell-body"><tr id="empty-row"><td colspan="4" style="color:var(--muted);text-align:center;padding:24px">Cart is empty</td></tr></tbody>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Unit Price</th>
+        <th>Total</th>
+        <th>Remove</th>
+      </tr>
+    </thead>
+    <tbody id="sell-body">
+      <tr id="empty-row">
+        <td colspan="5" style="color:var(--muted);text-align:center;padding:32px">Cart is empty</td>
+      </tr>
+    </tbody>
   </table>
 </div>
-<div class="subtotal-bar"><div class="label">Subtotal</div><div class="amount">₦<span id="subtotal">0</span></div></div>
+
+<div class="subtotal-bar">
+  <div class="label">Subtotal</div>
+  <div class="amount">₦<span id="subtotal">0</span></div>
+</div>
+
+<!-- Receipt (hidden until print) -->
+<div id="receipt">
+  <h2 id="r-store"></h2>
+  <p id="r-address"></p>
+  <p id="r-phone"></p>
+
+  <div class="receipt-meta">
+    <div>Customer: <span id="r-customer"></span></div>
+    <div>Cashier: <span id="r-cashier"></span></div>
+    <div>Date: <span id="r-date"></span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+      <tbody id="r-items"></tbody>
+    </table>
+  </div>
+
+  <div class="receipt-subtotal">Subtotal: ₦<span id="r-subtotal"></span></div>
+  <div class="receipt-total">Total: ₦<span id="r-total"></span></div>
+
+  <div class="receipt-powered">
+    <span>Powered by</span>
+    <strong>Michael Web™</strong>
+  </div>
+</div>
+
 <a href="index.html" class="back-link">← Back to Dashboard</a>
+
 <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -1,23 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StockSavvy - Login</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockSavvy — Sign In</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div style="display:flex; align-items:center; justify-content:center; min-height:90vh;">
-        <div class="card">
-            <h1 style="color:var(--accent); text-align:center; font-family:'Syne';">StockSavvy</h1>
-            <p style="text-align:center; color:var(--muted); margin-bottom:20px;">Secure POS Login</p>
-            <input id="bizcode" placeholder="BUSINESS CODE" style="text-transform:uppercase">
-            <input id="username" placeholder="Username">
-            <input id="password" type="password" placeholder="Password">
-            <button id="login-btn">Sign In</button>
-            <p style="text-align:center; font-size:11px; margin-top:20px; color:var(--muted);">Managed by Michael Web™</p>
-        </div>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">StockSavvy</div>
+    <p class="login-sub">Sign in to your store — by Michael Web™</p>
+
+    <div class="login-field">
+      <label>Business Code</label>
+      <input id="bizcode" placeholder="e.g. SHOP001" autocomplete="off" spellcheck="false"/>
     </div>
-    <script type="module" src="script.js"></script>
+    <div class="login-field">
+      <label>Username</label>
+      <input id="username" placeholder="Enter username" autocomplete="off"/>
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••"/>
+    </div>
+
+    <div class="login-btn-wrap">
+      <button class="btn btn-primary" id="login-btn" style="width:100%;padding:14px;font-size:0.85rem">Sign In →</button>
+    </div>
+
+    <p style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:20px;line-height:1.6">
+      Need a business code?<br>
+      <strong style="color:var(--accent)">Michael Web™</strong> — 08033441185
+    </p>
+  </div>
+</div>
+<script type="module" src="script.js"></script>
 </body>
 </html>

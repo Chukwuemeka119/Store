@@ -1,24 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockSavvy — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <h2 id="c-name">StockSavvy</h2>
-        <div class="nav-links">
-            <a href="inventory.html">Inventory</a>
-            <a href="sales.html">Sales</a>
-            <a href="admin.html">Admin</a>
-            <a href="#" onclick="logout()" style="color:var(--danger)">Sign Out</a>
-        </div>
-    </nav>
-    <div class="card"><h3>Dashboard</h3><p>Manage your store effectively.</p></div>
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-width:500px; margin:auto;">
-        <button onclick="location.href='sales.html'">New Sale</button>
-        <button onclick="location.href='inventory.html'">Stock</button>
-    </div>
-    <script type="module" src="script.js"></script>
+<nav class="navbar">
+  <div class="store-info">
+    <h2 id="c-name">Loading...</h2>
+    <p id="c-address"></p>
+    <p id="c-phone"></p>
+  </div>
+  <div class="nav-links">
+    <a href="inventory.html">Inventory</a>
+    <a href="sales.html">Sales</a>
+    <a href="admin.html">Admin</a>
+    <a href="#" id="logout-link" class="danger">Sign Out</a>
+  </div>
+</nav>
+
+<h1 class="page-title">Welcome <span>back</span></h1>
+
+<!-- Subscription status bar -->
+<div class="sub-card" id="sub-card" style="display:none">
+  <div class="sub-card-left">
+    <div class="sub-card-label">Subscription</div>
+    <div class="sub-card-biz" id="sub-biz"></div>
+    <div class="sub-card-date" id="sub-dates"></div>
+  </div>
+  <div id="sub-status"></div>
+</div>
+
+<div class="dash-grid">
+  <a href="inventory.html" class="dash-card">
+    <div class="dash-card-icon">📦</div>
+    <div class="dash-card-title">Inventory</div>
+    <div class="dash-card-sub">Manage stock & items</div>
+  </a>
+  <a href="sales.html" class="dash-card sales">
+    <div class="dash-card-icon">🧾</div>
+    <div class="dash-card-title">Sales</div>
+    <div class="dash-card-sub">Process transactions</div>
+  </a>
+  <a href="admin.html" class="dash-card admin-c">
+    <div class="dash-card-icon">⚙️</div>
+    <div class="dash-card-title">Admin</div>
+    <div class="dash-card-sub">Manage cashiers & settings</div>
+  </a>
+</div>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>

@@ -1,23 +1,64 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockSavvy — Inventory</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="navbar"><h2 id="c-name">Inventory</h2><div class="nav-links"><a href="index.html">Home</a><a href="admin.html">Admin</a><a href="#" onclick="logout()">Logout</a></div></nav>
-    <div class="card">
-        <h3>Add Item</h3>
-        <input id="item-name" placeholder="Item Name">
-        <input id="item-price" type="number" placeholder="Price">
-        <button id="add-item">Add Stock</button>
+<nav class="navbar">
+  <div class="store-info">
+    <h2 id="c-name"></h2>
+    <p id="c-address"></p>
+  </div>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="sales.html">Sales</a>
+    <a href="admin.html">Admin</a>
+    <a href="#" id="logout-link" class="danger">Sign Out</a>
+  </div>
+</nav>
+
+<h1 class="page-title"><span>Inventory</span></h1>
+
+<div class="card">
+  <div class="section-label">Add New Item</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Item Name</label>
+      <input id="item-name" placeholder="e.g. Coca Cola"/>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead><tr><th>Item</th><th>Price</th><th>Action</th></tr></thead>
-            <tbody id="inventory-list"></tbody>
-        </table>
+    <div class="field">
+      <label>Price (₦)</label>
+      <input id="item-price" type="number" placeholder="0.00" min="0"/>
     </div>
-    <script type="module" src="script.js"></script>
+    <div class="field">
+      <label>Quantity</label>
+      <input id="item-quantity" type="number" placeholder="0" min="0"/>
+    </div>
+    <button id="add-item" class="btn btn-primary" style="align-self:flex-end">+ Add Item</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Item Name</th>
+        <th>Price</th>
+        <th>Qty in Stock</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="inventory-body">
+      <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:32px">Loading inventory...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<a href="index.html" class="back-link">← Back to Dashboard</a>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>

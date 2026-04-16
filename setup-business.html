@@ -1,24 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MW™ — Business Manager</title>
+  <meta name="robots" content="noindex,nofollow"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'DM Mono',monospace;background:#0a0a0f;color:#e8e8f0;min-height:100vh;padding:32px 24px;
+      background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(124,106,255,0.15),transparent)}
+    h1{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,#7c6aff,#ff6a9b);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+    .sub{font-size:0.72rem;color:#6b6b88;margin-bottom:32px}
+    .wrap{max-width:600px;margin:0 auto}
+    .card{background:#13131a;border:1px solid #2a2a3a;border-radius:20px;padding:28px;margin-bottom:16px}
+    .sl{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#6b6b88;margin-bottom:16px}
+    .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+    label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#6b6b88}
+    input,select{font-family:'DM Mono',monospace;font-size:0.85rem;background:#1c1c26;border:1px solid #2a2a3a;
+      color:#e8e8f0;padding:11px 14px;border-radius:12px;outline:none;width:100%;transition:border-color 0.2s}
+    input:focus,select:focus{border-color:#7c6aff;box-shadow:0 0 0 3px rgba(124,106,255,0.15)}
+    input::placeholder{color:#6b6b88}
+    .btn{font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;
+      cursor:pointer;border:none;border-radius:12px;padding:12px 22px;transition:all 0.2s;width:100%}
+    .btn-primary{background:linear-gradient(135deg,#7c6aff,#9b8aff);color:#fff;box-shadow:0 4px 20px rgba(124,106,255,0.35)}
+    .btn-primary:hover{transform:translateY(-1px)}
+    .btn-danger{background:rgba(255,77,109,0.12);color:#ff4d6d;border:1px solid rgba(255,77,109,0.25)}
+    .btn-danger:hover{background:rgba(255,77,109,0.22)}
+    .btn-success{background:rgba(106,255,212,0.12);color:#6affd4;border:1px solid rgba(106,255,212,0.25)}
+    .btn-sm{width:auto;padding:6px 14px;font-size:0.68rem}
+    #status{margin-top:14px;padding:12px 16px;border-radius:10px;font-size:0.78rem;display:none;line-height:1.5}
+    .ok{background:rgba(106,255,212,0.1);border:1px solid rgba(106,255,212,0.25);color:#6affd4}
+    .err{background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.25);color:#ff4d6d}
+    .biz-row{background:#13131a;border:1px solid #2a2a3a;border-radius:12px;padding:16px 18px;
+      margin-bottom:10px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .biz-code{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:#7c6aff;margin-bottom:2px}
+    .biz-name{font-size:0.78rem;color:#e8e8f0}
+    .biz-meta{font-size:0.68rem;color:#6b6b88;margin-top:2px}
+    .biz-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .badge{display:inline-block;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;padding:3px 9px;border-radius:99px;font-weight:600}
+    .badge-active{background:rgba(106,255,212,0.1);color:#6affd4;border:1px solid rgba(106,255,212,0.25)}
+    .badge-inactive{background:rgba(255,77,109,0.1);color:#ff4d6d;border:1px solid rgba(255,77,109,0.25)}
+    .tog-btn{font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;
+      background:transparent;border:1px solid #2a2a3a;color:#6b6b88;padding:5px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s}
+    .tog-btn:hover{border-color:#7c6aff;color:#7c6aff}
+    .gate-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .gate-card{width:100%;max-width:380px;background:#13131a;border:1px solid #2a2a3a;border-radius:20px;padding:36px;box-shadow:0 40px 80px rgba(0,0,0,0.5)}
+    .gate-logo{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:#7c6aff;margin-bottom:4px}
+    .gate-sub{font-size:0.72rem;color:#6b6b88;margin-bottom:24px}
+    .loading{color:#6b6b88;font-size:0.78rem;text-align:center;padding:24px}
+    .date-field{font-family:'DM Mono',monospace;font-size:0.8rem;background:#1c1c26;border:1px solid #2a2a3a;
+      color:#e8e8f0;padding:6px 10px;border-radius:8px;outline:none;border-color:#2a2a3a;width:140px}
+    .date-field:focus{border-color:#7c6aff}
+  </style>
 </head>
 <body>
+
+<!-- GATE -->
+<div class="gate-wrap" id="gate-wrap">
+  <div class="gate-card">
+    <div class="gate-logo">MW™</div>
+    <p class="gate-sub">Owner access — StockSavvy Business Manager</p>
+    <div class="field" style="margin-bottom:16px">
+      <label>Owner Password</label>
+      <input type="password" id="owner-pass" placeholder="••••••••"/>
+    </div>
+    <button class="btn btn-primary" id="gate-btn">Enter →</button>
+    <div id="gate-err" style="color:#ff4d6d;font-size:0.72rem;margin-top:10px;display:none">Wrong password.</div>
+  </div>
+</div>
+
+<!-- MAIN PANEL -->
+<div id="main-panel" style="display:none">
+  <div class="wrap">
+    <h1>MW™ Business Manager</h1>
+    <p class="sub">Create and manage StockSavvy customer accounts</p>
+
+    <!-- CREATE -->
     <div class="card">
-        <h2>MW Owner Panel</h2>
-        <input type="password" id="owner-pass" placeholder="Owner Pass">
-        <button id="unlock">Unlock</button>
+      <div class="sl">Create New Business Account</div>
+      <div class="field">
+        <label>Business Code (unique ID)</label>
+        <input id="new-bizcode" placeholder="e.g. SHOP001 — will be uppercased"/>
+      </div>
+      <div class="field">
+        <label>Store Name</label>
+        <input id="new-bizname" placeholder="e.g. Mummy Aka Shop"/>
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input id="new-bizaddr" placeholder="e.g. Abuja, Nigeria"/>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input id="new-bizphone" placeholder="e.g. 08012345678"/>
+      </div>
+      <div class="field">
+        <label>Admin Password</label>
+        <input id="new-adminpass" type="password" placeholder="min. 4 characters"/>
+      </div>
+      <div class="field">
+        <label>Payment Date (today)</label>
+        <input id="new-paydate" type="date"/>
+      </div>
+      <button class="btn btn-primary" id="create-btn" style="margin-top:4px">+ Create Business Account</button>
+      <div id="status"></div>
     </div>
-    <div id="manager" style="display:none">
-        <div class="card">
-            <h3>New Business</h3>
-            <input id="new-id" placeholder="ID (e.g. SHOP01)">
-            <input id="new-name" placeholder="Store Name">
-            <button id="create">Register</button>
+
+    <!-- LIST -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="sl" style="margin-bottom:0">Existing Accounts</div>
+        <button class="btn btn-sm" onclick="loadList()" style="background:#1c1c26;color:#6b6b88;border:1px solid #2a2a3a;border-radius:8px">↻ Refresh</button>
+      </div>
+      <div id="biz-list"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const OWNER_PASS = 'mwowner2026'; // ← Change this
+
+const cfg = {
+  apiKey: "AIzaSyAF7q176rxAoCFqhH0Djquhu0MphaUMLyQ",
+  authDomain: "pos-store-29e58.firebaseapp.com",
+  databaseURL: "https://pos-store-29e58-default-rtdb.firebaseio.com",
+  projectId: "pos-store-29e58",
+  storageBucket: "pos-store-29e58.firebasestorage.app",
+  messagingSenderId: "494046387333",
+  appId: "1:494046387333:web:44ef67eeac8e40e4f19dec"
+};
+
+const app = initializeApp(cfg, 'setup');
+const db  = getDatabase(app);
+const $   = id => document.getElementById(id);
+
+// Set today's date as default
+$('new-paydate').value = new Date().toISOString().split('T')[0];
+
+// ── GATE ──────────────────────────────────────────
+$('gate-btn').addEventListener('click', tryGate);
+$('owner-pass').addEventListener('keydown', e => { if (e.key === 'Enter') tryGate(); });
+
+function tryGate() {
+  if ($('owner-pass').value === OWNER_PASS) {
+    $('gate-wrap').style.display = 'none';
+    $('main-panel').style.display = 'block';
+    loadList();
+  } else {
+    $('gate-err').style.display = 'block';
+    $('owner-pass').value = '';
+    setTimeout(() => $('gate-err').style.display = 'none', 3000);
+  }
+}
+
+// ── CREATE ────────────────────────────────────────
+$('create-btn').addEventListener('click', async () => {
+  const bizId    = $('new-bizcode').value.trim().toUpperCase();
+  const name     = $('new-bizname').value.trim();
+  const address  = $('new-bizaddr').value.trim();
+  const phone    = $('new-bizphone').value.trim();
+  const adminPw  = $('new-adminpass').value.trim();
+  const payDate  = $('new-paydate').value;
+
+  if (!bizId || !name || !adminPw || !payDate) {
+    showStatus('Please fill in: Code, Store Name, Admin Password and Payment Date.', false); return;
+  }
+  if (adminPw.length < 4) { showStatus('Admin password must be at least 4 characters.', false); return; }
+
+  try {
+    const snap = await get(ref(db, `businesses/${bizId}/config`));
+    if (snap.exists()) { showStatus(`Code "${bizId}" already exists. Choose a different code.`, false); return; }
+
+    await set(ref(db, `businesses/${bizId}`), {
+      config: {
+        adminPassword: adminPw,
+        active: true,
+        lastPaymentDate: new Date(payDate).toISOString(),
+        createdAt: new Date().toISOString(),
+      },
+      business: { name, address: address || '', phone: phone || '' }
+    });
+
+    showStatus(`✓ "${name}" created!\nCode: ${bizId} | Admin pass: ${adminPw}\nExpiry: ${getExpiry(payDate)}`, true);
+    $('new-bizcode').value = $('new-bizname').value = $('new-bizaddr').value = '';
+    $('new-bizphone').value = $('new-adminpass').value = '';
+    $('new-paydate').value = new Date().toISOString().split('T')[0];
+    loadList();
+  } catch (e) { showStatus('Error: ' + e.message, false); }
+});
+
+function getExpiry(payDateStr) {
+  const d = new Date(payDateStr);
+  const expiry = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate() + 3);
+  return expiry.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+
+// ── LIST ──────────────────────────────────────────
+window.loadList = async function() {
+  const list = $('biz-list');
+  list.innerHTML = '<div class="loading">Loading...</div>';
+
+  try {
+    const snap = await get(ref(db, 'businesses'));
+    const data  = snap.val() || {};
+    const entries = Object.entries(data);
+
+    if (!entries.length) { list.innerHTML = '<div class="loading">No businesses yet</div>'; return; }
+
+    list.innerHTML = entries.map(([id, biz]) => {
+      const active  = biz.config?.active !== false;
+      const payDate = biz.config?.lastPaymentDate ? new Date(biz.config.lastPaymentDate).toLocaleDateString('en-GB') : '—';
+      const expiry  = biz.config?.lastPaymentDate ? getExpiry(biz.config.lastPaymentDate.split('T')[0]) : '—';
+      return `<div class="biz-row">
+        <div>
+          <div class="biz-code">${id}</div>
+          <div class="biz-name">${biz.business?.name || '—'}</div>
+          <div class="biz-meta">Paid: ${payDate} · Expires: ${expiry} · Phone: ${biz.business?.phone || '—'}</div>
         </div>
-        <div id="biz-list"></div>
-    </div>
-    <script type="module" src="script.js"></script>
+        <div class="biz-actions">
+          <span class="badge ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span>
+          <input type="date" class="date-field" id="pd-${id}" value="${biz.config?.lastPaymentDate ? biz.config.lastPaymentDate.split('T')[0] : ''}"/>
+          <button class="tog-btn" style="color:#6affd4;border-color:rgba(106,255,212,0.3)" onclick="markPaid('${id}')">✓ Paid</button>
+          <button class="tog-btn ${active ? '' : ''}" style="${active ? 'color:#ff4d6d;border-color:rgba(255,77,109,0.3)' : 'color:#6affd4;border-color:rgba(106,255,212,0.3)'}" onclick="toggleStatus('${id}', ${active})">${active ? 'Deactivate' : 'Activate'}</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { list.innerHTML = `<div class="loading">Error: ${e.message}</div>`; }
+};
+
+window.markPaid = async (id) => {
+  const dateEl = document.getElementById(`pd-${id}`);
+  const dateVal = dateEl ? dateEl.value : new Date().toISOString().split('T')[0];
+  if (!dateVal) { alert('Please select a payment date first.'); return; }
+  if (!confirm(`Mark ${id} as paid on ${dateVal}?`)) return;
+  try {
+    await update(ref(db, `businesses/${id}/config`), {
+      lastPaymentDate: new Date(dateVal).toISOString(),
+      active: true
+    });
+    loadList();
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+window.toggleStatus = async (id, currentlyActive) => {
+  const action = currentlyActive ? 'DEACTIVATE' : 'ACTIVATE';
+  if (!confirm(`${action} business "${id}"? ${currentlyActive ? 'They will be kicked out immediately.' : 'They will regain access.'}`)) return;
+  try {
+    await update(ref(db, `businesses/${id}/config`), { active: !currentlyActive });
+    loadList();
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+function showStatus(msg, ok) {
+  const el = $('status');
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'err';
+  el.style.display = 'block';
+  if (ok) setTimeout(() => el.style.display = 'none', 8000);
+}
+</script>
 </body>
 </html>
