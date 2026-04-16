@@ -37,7 +37,7 @@ const PAGE = (() => {
 })();
 
 function getBizId()   { return sessionStorage.getItem('bizId'); }
-function getCashier() { return sessionStorage.getItem('cashier') || '—'; }
+function getCashier() { return sessionStorage.getItem('cashier') || 'Admin'; }
 function bizRef(path) { return ref(db, `businesses/${getBizId()}/${path}`); }
 
 // ── AUTH GUARD ────────────────────────────────────────────────────────────────
@@ -61,7 +61,6 @@ if (PAGE !== 'login.html' && getBizId()) {
 
 // ── ADMIN PASSWORD HELPERS ────────────────────────────────────────────────────
 async function getAdminPw() {
-  if (adminCache) return adminCache;
   try {
     const snap = await get(bizRef('config/adminPassword'));
     adminCache = snap.exists() ? snap.val() : 'admin123';
@@ -89,50 +88,29 @@ if (PAGE === 'admin.html') {
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   on('logout-link', 'click', e => { e.preventDefault(); handleLogout(); });
-
-  if (PAGE === 'login.html') {
-    wireLOGIN();
-    return;
-  }
-
+  if (PAGE === 'login.html') { wireLOGIN(); return; }
   await loadStore();
   renderNavbar();
-
-  if (PAGE === 'index.html' || PAGE === '') {
-    wireINDEX();
-    loadSubscriptionCard();
-  }
-  if (PAGE === 'inventory.html') {
-    wireINVENTORY();
-  }
-  if (PAGE === 'sales.html') {
-    wireSALES();
-  }
-  if (PAGE === 'admin.html') {
-    wireADMIN();
-  }
+  if (PAGE === 'index.html' || PAGE === '') { wireINDEX(); loadSubscriptionCard(); }
+  if (PAGE === 'inventory.html') { wireINVENTORY(); }
+  if (PAGE === 'sales.html') { wireSALES(); }
+  if (PAGE === 'admin.html') { wireADMIN(); }
 });
 
-// ── STORE ─────────────────────────────────────────────────────────────────────
 async function loadStore() {
   try {
     const snap = await get(bizRef('business'));
     if (snap.exists()) {
       const d = snap.val();
-      STORE.name    = d.name    || '';
-      STORE.address = d.address || '';
-      STORE.phone   = d.phone   || '';
+      STORE.name = d.name || ''; STORE.address = d.address || ''; STORE.phone = d.phone || '';
     }
   } catch {}
 }
 
 function renderNavbar() {
-  setText('c-name',    STORE.name);
-  setText('c-address', STORE.address);
-  setText('c-phone',   STORE.phone);
+  setText('c-name', STORE.name); setText('c-address', STORE.address); setText('c-phone', STORE.phone);
 }
 
-// ── SUBSCRIPTION CARD (Dashboard) ─────────────────────────────────────────────
 async function loadSubscriptionCard() {
   try {
     const snap = await get(ref(db, `businesses/${getBizId()}/config`));
@@ -140,18 +118,14 @@ async function loadSubscriptionCard() {
     const cfg = snap.val();
     const card = $('sub-card');
     if (!card) return;
-
     card.style.display = 'flex';
     setText('sub-biz', getBizId());
-
     if (cfg.lastPaymentDate) {
       const lastPaid = new Date(cfg.lastPaymentDate);
-      const expiry   = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, lastPaid.getDate() + 3);
-      const now      = new Date();
+      const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, lastPaid.getDate() + 3);
+      const now = new Date();
       const daysLeft = Math.ceil((expiry - now) / 86400000);
-
       setText('sub-dates', `Paid: ${lastPaid.toLocaleDateString('en-GB')} · Expires: ${expiry.toLocaleDateString('en-GB')}`);
-
       const statusEl = $('sub-status');
       if (now > expiry) {
         statusEl.innerHTML = `<span class="status-badge status-expired">Expired</span>`;
@@ -165,290 +139,264 @@ async function loadSubscriptionCard() {
   } catch {}
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
 function wireLOGIN() {
   const bizEl = $('bizcode');
   if (bizEl) bizEl.addEventListener('input', () => { bizEl.value = bizEl.value.toUpperCase(); });
-
   on('login-btn', 'click', handleLogin);
-  on('password',  'keydown', e => { if (e.key === 'Enter') handleLogin(); });
+  on('password', 'keydown', e => { if (e.key === 'Enter') handleLogin(); });
 }
 
 async function handleLogin() {
   const bizId = ($('bizcode')?.value || '').trim().toUpperCase();
   const user  = ($('username')?.value || '').trim();
   const pass  = ($('password')?.value || '').trim();
-
   if (!bizId || !user || !pass) { alert('Please fill in all fields.'); return; }
-
   const btn = $('login-btn');
   if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
-
   try {
     const snap = await get(ref(db, `businesses/${bizId}`));
-    if (!snap.exists()) {
-      alert('Business code not found.\nContact Michael Web™ — 08033441185');
-      return;
-    }
-
-    const data   = snap.val();
-    const config = data.config || {};
-
-    if (config.active === false) {
-      alert('⚠️ This account is deactivated.\nPlease contact Michael Web™ to renew — 08033441185');
-      return;
-    }
-
-    if (config.lastPaymentDate) {
-      const lastPaid = new Date(config.lastPaymentDate);
-      const expiry   = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, lastPaid.getDate() + 3);
-      if (new Date() > expiry) {
-        await update(ref(db, `businesses/${bizId}/config`), { active: false });
-        alert('⚠️ Subscription expired.\nPlease contact Michael Web™ — 08033441185');
-        return;
-      }
-      const daysLeft = Math.ceil((expiry - new Date()) / 86400000);
-      if (daysLeft <= 5) {
-        alert(`⚠️ Payment reminder: Subscription expires in ${daysLeft} day(s).\nContact Michael Web™ — 08033441185`);
-      }
-    }
-
+    if (!snap.exists()) { alert('Business code not found.'); return; }
+    const data = snap.val(); const config = data.config || {};
+    if (config.active === false) { alert('⚠️ Deactivated.'); return; }
     let authenticated = false;
     if (user === 'admin') {
-      if (pass === (config.adminPassword || 'admin123')) {
-        sessionStorage.setItem('isAdmin', 'true');
-        authenticated = true;
-      }
+      if (pass === (config.adminPassword || 'admin123')) { authenticated = true; }
     } else {
       const cashiers = data.cashiers || {};
       authenticated = Object.values(cashiers).some(c => c.username === user && c.password === pass);
     }
-
     if (authenticated) {
       sessionStorage.setItem('posAuth', 'true');
       sessionStorage.setItem('cashier', user);
       sessionStorage.setItem('bizId', bizId);
       location.href = 'index.html';
-    } else {
-      alert('Wrong username or password.');
-    }
-  } catch (err) {
-    alert('Connection error. Please check your internet and try again.');
-    console.error(err);
-  } finally {
-    if (btn) { btn.textContent = 'Sign In →'; btn.disabled = false; }
-  }
+    } else { alert('Wrong credentials.'); }
+  } catch (err) { alert('Error logging in.'); } finally { if (btn) { btn.textContent = 'Sign In →'; btn.disabled = false; } }
 }
 
-// ── LOGOUT ────────────────────────────────────────────────────────────────────
-function handleLogout() {
-  if (!confirm('Sign out?')) return;
-  sessionStorage.clear();
-  location.href = 'login.html';
-}
+function handleLogout() { if (confirm('Sign out?')) { sessionStorage.clear(); location.href = 'login.html'; } }
 
-// ── INDEX ─────────────────────────────────────────────────────────────────────
 function wireINDEX() {}
 
-// ── INVENTORY ─────────────────────────────────────────────────────────────────
 function wireINVENTORY() {
   on('add-item', 'click', handleAddItem);
   onValue(bizRef('inventory'), snap => {
     inventory = [];
-    if (snap.exists()) {
-      snap.forEach(child => {
-        inventory.push({ id: child.key, ...child.val() });
-      });
-    }
+    if (snap.exists()) snap.forEach(child => { inventory.push({ id: child.key, ...child.val() }); });
     renderInventory();
-    renderSellDropdown();
   });
 }
 
 function handleAddItem() {
-  const name  = ($('item-name')?.value || '').trim();
+  const name = ($('item-name')?.value || '').trim();
   const price = Number($('item-price')?.value);
-  const qty   = Number($('item-quantity')?.value);
-
-  if (!name)  { alert('Please enter an item name.'); return; }
-  if (!price || price <= 0) { alert('Please enter a valid price.'); return; }
-  if (!qty   || qty <= 0)   { alert('Please enter a valid quantity.'); return; }
-
+  const qty = Number($('item-quantity')?.value);
+  if (!name || price <= 0 || qty <= 0) { alert('Invalid input.'); return; }
   push(bizRef('inventory'), { name, price, qty });
-  if ($('item-name'))     $('item-name').value = '';
-  if ($('item-price'))    $('item-price').value = '';
-  if ($('item-quantity')) $('item-quantity').value = '';
+  $('item-name').value = ''; $('item-price').value = ''; $('item-quantity').value = '';
 }
 
 function renderInventory() {
-  const body = $('inventory-body');
-  if (!body) return;
-  if (!inventory.length) {
-    body.innerHTML = `<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:32px">No items yet</td></tr>`;
-    return;
-  }
+  const body = $('inventory-body'); if (!body) return;
+  if (!inventory.length) { body.innerHTML = `<tr><td colspan="4" style="text-align:center">Empty</td></tr>`; return; }
   body.innerHTML = inventory.map(item => `
-    <tr>
-      <td>${clean(item.name)}</td>
-      <td>₦${Number(item.price).toLocaleString()}</td>
-      <td>${Number(item.qty).toLocaleString()}</td>
-      <td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="deleteItem('${item.id}','${clean(item.name)}')">Remove</button></td>
-    </tr>`).join('');
+    <tr><td>${clean(item.name)}</td><td>₦${Number(item.price).toLocaleString()}</td><td>${item.qty}</td>
+    <td><button class="btn btn-danger" onclick="deleteItem('${item.id}','${clean(item.name)}')">Remove</button></td></tr>`).join('');
 }
 
 window.deleteItem = async (id, name) => {
-  const ok = await verifyAdmin(`🔐 Enter admin password to remove "${name}":`);
-  if (!ok) { alert('Incorrect password.'); return; }
-  await remove(bizRef('inventory/' + id));
+  if (await verifyAdmin(`🔐 Confirm delete "${name}":`)) await remove(bizRef('inventory/' + id));
 };
 
-// ── SALES ─────────────────────────────────────────────────────────────────────
 function wireSALES() {
   onValue(bizRef('inventory'), snap => {
     inventory = [];
-    if (snap.exists()) {
-      snap.forEach(child => inventory.push({ id: child.key, ...child.val() }));
-    }
+    if (snap.exists()) snap.forEach(child => inventory.push({ id: child.key, ...child.val() }));
     renderSellDropdown();
   });
-  on('sell-btn',  'click', handleAddToCart);
+  on('sell-btn', 'click', handleAddToCart);
   on('print-btn', 'click', handlePrint);
 }
 
 function renderSellDropdown() {
-  const sel = $('sell-item');
-  if (!sel) return;
-  const current = sel.value;
+  const sel = $('sell-item'); if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${clean(i.name)}" ${i.name === current ? 'selected' : ''}>${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+    inventory.map(i => `<option value="${clean(i.name)}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
 }
 
 function handleAddToCart() {
-  const name = $('sell-item')?.value;
-  const qty  = Number($('sell-qty')?.value);
-  if (!name || qty < 1) { alert('Invalid selection or quantity.'); return; }
+  const name = $('sell-item')?.value; const qty = Number($('sell-qty')?.value);
+  if (!name || qty < 1) return;
   const item = inventory.find(i => i.name === name);
-  if (qty > item.qty) { alert(`Only ${item.qty} left.`); return; }
-
-  const total = qty * item.price;
-  const cartIndex = cart.length;
-  cart.push({ name: item.name, qty, price: item.price, total });
-
-  const emptyRow = $('empty-row');
-  if (emptyRow) emptyRow.remove();
-
-  const tr = document.createElement('tr');
-  tr.dataset.cartIndex = cartIndex;
-  tr.innerHTML = `<td>${clean(item.name)}</td><td>${qty}</td><td>₦${Number(item.price).toLocaleString()}</td><td>₦${total.toLocaleString()}</td><td><button class="btn btn-danger" style="padding:5px 10px;font-size:0.7rem" onclick="removeFromCart(${cartIndex})">✕</button></td>`;
-  $('sell-body').appendChild(tr);
-  updateSubtotal();
-  if ($('sell-qty')) $('sell-qty').value = '';
+  if (!item || qty > item.qty) { alert('Stock limit exceeded.'); return; }
+  cart.push({ name: item.name, qty, price: item.price, total: qty * item.price });
+  updateCartUI();
 }
 
-window.removeFromCart = (index) => {
-  cart[index] = null;
-  const row = $('sell-body')?.querySelector(`tr[data-cart-index="${index}"]`);
-  if (row) row.remove();
-  updateSubtotal();
-};
-
-function updateSubtotal() {
-  const total = cart.filter(Boolean).reduce((s, i) => s + i.total, 0);
+function updateCartUI() {
+  const body = $('sell-body'); if (!body) return;
+  body.innerHTML = cart.map((i, idx) => `
+    <tr><td>${clean(i.name)}</td><td>${i.qty}</td><td>₦${Number(i.price).toLocaleString()}</td><td>₦${i.total.toLocaleString()}</td>
+    <td><button class="btn btn-danger" onclick="removeFromCart(${idx})">✕</button></td></tr>`).join('');
+  const total = cart.reduce((s, i) => s + i.total, 0);
   setText('subtotal', total.toLocaleString());
 }
 
+window.removeFromCart = (idx) => { cart.splice(idx, 1); updateCartUI(); };
+
 async function handlePrint() {
-  cart = cart.filter(Boolean);
-  if (!cart.length) return;
+  const validCart = cart.filter(Boolean);
+  if (!validCart.length) { alert('Cart is empty.'); return; }
+
   const now = new Date();
   const customerName = ($('customer-name')?.value.trim()) || 'Walk-in';
+  const cashierName  = getCashier();
+
+  const receiptEl = $('receipt');
+  if (receiptEl) receiptEl.style.display = 'block';
+
+  setText('r-store',    STORE.name || 'StockSavvy Store');
+  setText('r-address',  STORE.address || '');
+  setText('r-phone',    STORE.phone || '');
+  setText('r-customer', customerName);
+  setText('r-cashier',  cashierName);
+  setText('r-date',     now.toLocaleString('en-GB'));
+
+  const rItems = $('r-items');
+  if (rItems) {
+    rItems.innerHTML = validCart.map(i => `
+      <tr>
+        <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
+        <td style="text-align:center;">${i.qty}</td>
+        <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
+        <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
+      </tr>`).join('');
+  }
+
+  const grandTotal = validCart.reduce((s, i) => s + i.total, 0);
+  setText('r-subtotal', grandTotal.toLocaleString());
+  setText('r-total',    grandTotal.toLocaleString());
 
   const updates = [];
-  cart.forEach(cartItem => {
-    const inv = inventory.find(i => i.name === cartItem.name);
-    const newQty = inv.qty - cartItem.qty;
-    updates.push(newQty <= 0 ? remove(bizRef('inventory/' + inv.id)) : update(bizRef('inventory/' + inv.id), { qty: newQty }));
+  validCart.forEach(ci => {
+    const inv = inventory.find(i => i.name === ci.name);
+    if (inv) updates.push(update(bizRef('inventory/' + inv.id), { qty: Math.max(0, inv.qty - ci.qty) }));
   });
 
   updates.push(push(bizRef('sales'), {
-    cashier: getCashier(),
-    customer: customerName,
+    cashier:   cashierName,
+    customer:  customerName,
     timestamp: now.toISOString(),
-    total: cart.reduce((s, i) => s + i.total, 0),
-    items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
+    total:     grandTotal,
+    items:     validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
   }));
 
   await Promise.all(updates);
-  cart = [];
+  cart = []; updateCartUI(); if ($('customer-name')) $('customer-name').value = '';
   window.print();
-  location.reload();
 }
 
-// ── ADMIN ─────────────────────────────────────────────────────────────────────
 function wireADMIN() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      $('tab-' + btn.dataset.tab)?.classList.add('active');
+      document.querySelectorAll('.tab-btn, .tab-panel').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active'); $('tab-' + btn.dataset.tab)?.classList.add('active');
     });
   });
-  wireCashiers();
-  wireHistory();
+  wireCashiers(); 
+  wireHistory(); 
   wireBusiness();
+  wireAdminPassword(); // FIX: Added password change listener
+}
+
+function wireAdminPassword() {
+  on('save-pw-btn', 'click', async () => {
+    const current = $('current-pass').value;
+    const next    = $('new-pass').value;
+    const confirm = $('confirm-pass').value;
+    
+    if(!current || !next || !confirm) { alert('Please fill all password fields.'); return; }
+    if(next !== confirm) { alert('New passwords do not match!'); return; }
+    
+    const actual = await getAdminPw();
+    if(current !== actual) { alert('Current password incorrect.'); return; }
+    
+    try {
+      await update(bizRef('config'), { adminPassword: next });
+      alert('Admin password updated successfully!');
+      $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
+    } catch (e) { alert('Update failed: ' + e.message); }
+  });
 }
 
 function wireCashiers() {
-  on('create-cashier-btn', 'click', handleCreateCashier);
+  on('create-cashier-btn', 'click', async () => {
+    const u = $('cashier-name').value.trim(); const p = $('cashier-pass').value.trim();
+    if (u && p) { await push(bizRef('cashiers'), { username: u, password: p }); $('cashier-name').value = ''; $('cashier-pass').value = ''; }
+  });
   onValue(bizRef('cashiers'), snap => {
-    const body = $('cashier-list');
-    if (!body) return;
-    const entries = [];
-    snap.forEach(child => entries.push([child.key, child.val()]));
-    body.innerHTML = entries.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button class="btn btn-danger" style="padding:6px 14px;font-size:0.7rem" onclick="deleteCashier('${id}','${clean(c.username)}')">Remove</button></td></tr>`).join('');
+    const list = $('cashier-list'); if (!list) return;
+    const items = []; snap.forEach(c => items.push([c.key, c.val()]));
+    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
   });
 }
-
-async function handleCreateCashier() {
-  const name = ($('cashier-name')?.value || '').trim();
-  const pass = ($('cashier-pass')?.value || '').trim();
-  if (name && pass) await push(bizRef('cashiers'), { username: name, password: pass });
-}
-
-window.deleteCashier = async (id, name) => {
-  if (confirm(`Remove cashier "${name}"?`)) await remove(bizRef('cashiers/' + id));
-};
+window.deleteCashier = (id) => remove(bizRef('cashiers/' + id));
 
 function wireBusiness() {
-  if ($('biz-name'))    $('biz-name').value    = STORE.name;
-  on('save-biz-btn', 'click', async () => {
-    const name = $('biz-name').value, address = $('biz-address').value, phone = $('biz-phone').value;
-    await update(bizRef('business'), { name, address, phone });
-    alert('Saved!');
+  if ($('biz-name')) { $('biz-name').value = STORE.name; $('biz-address').value = STORE.address; $('biz-phone').value = STORE.phone; }
+  on('save-biz-btn', 'click', () => {
+    const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
+    update(bizRef('business'), { name: n, address: a, phone: p }).then(() => alert('Store details updated!'));
   });
 }
 
 function wireHistory() {
   onValue(bizRef('sales'), snap => {
-    allSales = [];
-    if (snap.exists()) snap.forEach(child => allSales.push({ id: child.key, ...child.val() }));
+    allSales = []; if (snap.exists()) snap.forEach(c => allSales.push({ id: c.key, ...c.val() }));
     renderHistory();
+  });
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
+    });
   });
 }
 
 function renderHistory() {
-  const container = $('history-content');
-  if (!container || !allSales.length) return;
+  const container = $('history-content'); if (!container) return;
+  if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
+
   const groups = {};
   allSales.forEach(sale => {
-    const key = new Date(sale.timestamp).toLocaleDateString('en-GB');
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(sale);
+    const d = new Date(sale.timestamp);
+    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
+
   container.innerHTML = Object.keys(groups).reverse().map(key => {
     const sales = groups[key];
-    const rows = sales.map(sale => `<tr><td>${new Date(sale.timestamp).toLocaleTimeString()}</td><td>${clean(sale.cashier)}</td><td>₦${sale.total.toLocaleString()}</td></tr>`).join('');
-    return `<div class="history-group"><h3>${key}</h3><table>${rows}</table></div>`;
+    const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
+    const rows = [...sales].reverse().map(sale => {
+      const time = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const itemsText = (sale.items || []).map(i => `${clean(i.name)} (x${i.qty})`).join(', ');
+      return `
+        <tr>
+          <td style="color:var(--muted); font-size:0.75rem">${time}</td>
+          <td><span style="font-weight:600; color:var(--accent)">${clean(sale.cashier || 'Admin')}</span></td>
+          <td>${clean(sale.customer || 'Walk-in')}</td>
+          <td style="font-size:0.7rem; color:var(--muted)">${itemsText}</td>
+          <td style="color:var(--accent3); font-weight:600">₦${(Number(sale.total) || 0).toLocaleString()}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="history-group">
+        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
   }).join('');
 }
