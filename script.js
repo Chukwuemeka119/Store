@@ -236,9 +236,19 @@ function handleAddToCart() {
 
 function updateCartUI() {
   const body = $('sell-body'); if (!body) return;
+  if (!cart.length) {
+    body.innerHTML = `<tr id="empty-row"><td colspan="5" style="color:var(--muted);text-align:center;padding:32px">Cart is empty</td></tr>`;
+    setText('subtotal', '0');
+    return;
+  }
   body.innerHTML = cart.map((i, idx) => `
-    <tr><td>${clean(i.name)}</td><td>${i.qty}</td><td>₦${Number(i.price).toLocaleString()}</td><td>₦${i.total.toLocaleString()}</td>
-    <td><button class="btn btn-danger" onclick="removeFromCart(${idx})">✕</button></td></tr>`).join('');
+    <tr>
+      <td>${clean(i.name)}</td>
+      <td>${i.qty}</td>
+      <td>₦${Number(i.price).toLocaleString()}</td>
+      <td>₦${i.total.toLocaleString()}</td>
+      <td><button class="btn btn-danger" style="padding:5px 10px;font-size:0.7rem" onclick="removeFromCart(${idx})">✕</button></td>
+    </tr>`).join('');
   const total = cart.reduce((s, i) => s + i.total, 0);
   setText('subtotal', total.toLocaleString());
 }
@@ -282,7 +292,13 @@ async function handlePrint() {
   const updates = [];
   validCart.forEach(ci => {
     const inv = inventory.find(i => i.name === ci.name);
-    if (inv) updates.push(update(bizRef('inventory/' + inv.id), { qty: Math.max(0, inv.qty - ci.qty) }));
+    if (!inv) return;
+    const newQty = inv.qty - ci.qty;
+    if (newQty <= 0) {
+      updates.push(remove(bizRef('inventory/' + inv.id)));
+    } else {
+      updates.push(update(bizRef('inventory/' + inv.id), { qty: newQty }));
+    }
   });
 
   updates.push(push(bizRef('sales'), {
@@ -322,32 +338,40 @@ function wireCashiers() {
 window.deleteCashier = (id) => remove(bizRef('cashiers/' + id));
 
 function wireBusiness() {
-  if ($('biz-name')) { $('biz-name').value = STORE.name; $('biz-address').value = STORE.address; $('biz-phone').value = STORE.phone; }
-  on('save-biz-btn', 'click', () => {
-    const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
-    update(bizRef('business'), { name: n, address: a, phone: p });
-  });
-  on('change-pass-btn', 'click', handleChangePassword);
-}
+  if ($('biz-name')) {
+    $('biz-name').value    = STORE.name;
+    $('biz-address').value = STORE.address;
+    $('biz-phone').value   = STORE.phone;
+  }
 
-async function handleChangePassword() {
-  const currentPass = $('current-pass')?.value.trim();
-  const newPass = $('new-pass')?.value.trim();
-  const confirmPass = $('confirm-pass')?.value.trim();
-  
-  if (!currentPass || !newPass || !confirmPass) { alert('Please fill in all password fields.'); return; }
-  if (newPass.length < 4) { alert('New password must be at least 4 characters.'); return; }
-  if (newPass !== confirmPass) { alert('New passwords do not match.'); return; }
-  
-  const correct = await getAdminPw();
-  if (currentPass !== correct) { alert('Current password is incorrect.'); return; }
-  
-  try {
-    await update(bizRef('config/adminPassword'), newPass);
+  on('save-biz-btn', 'click', async () => {
+    const name    = ($('biz-name')?.value    || '').trim();
+    const address = ($('biz-address')?.value || '').trim();
+    const phone   = ($('biz-phone')?.value   || '').trim();
+    if (!name || !address || !phone) { alert('Please fill in all business detail fields.'); return; }
+    await update(bizRef('business'), { name, address, phone });
+    STORE = { name, address, phone };
+    renderNavbar();
+    alert('Business details saved!');
+  });
+
+  // Change admin password
+  on('change-pass-btn', 'click', async () => {
+    const current  = ($('current-pass')?.value  || '');
+    const newPass  = ($('new-pass')?.value       || '').trim();
+    const confirm2 = ($('confirm-pass')?.value   || '').trim();
+    if (!current || !newPass || !confirm2) { alert('Please fill in all password fields.'); return; }
+    if (newPass !== confirm2) { alert('New passwords do not match.'); return; }
+    if (newPass.length < 4)  { alert('Password must be at least 4 characters.'); return; }
+    const correct = await getAdminPw();
+    if (current !== correct) { alert('Current password is incorrect.'); return; }
+    await update(bizRef('config'), { adminPassword: newPass });
     adminCache = newPass;
-    alert('✓ Password changed successfully!');
-    $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
-  } catch (e) { alert('Error changing password: ' + e.message); }
+    alert('Admin password changed successfully!');
+    if ($('current-pass')) $('current-pass').value = '';
+    if ($('new-pass'))     $('new-pass').value     = '';
+    if ($('confirm-pass')) $('confirm-pass').value = '';
+  });
 }
 
 function wireHistory() {
@@ -361,17 +385,13 @@ function wireHistory() {
       btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
     });
   });
-  on('clear-history-btn', 'click', handleClearHistory);
-}
-
-async function handleClearHistory() {
-  if (!await verifyAdmin('🔐 Enter admin password to clear all sales history:')) return;
-  if (!confirm('⚠️ This will permanently delete ALL sales records. Continue?')) return;
-  try {
+  // Wire clear history button
+  on('clear-history-btn', 'click', async () => {
+    if (!confirm('Clear ALL sales history? This cannot be undone.')) return;
     await remove(bizRef('sales'));
     allSales = [];
     renderHistory();
-  } catch (e) { alert('Error clearing history: ' + e.message); }
+  });
 }
 
 // FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
@@ -382,7 +402,16 @@ function renderHistory() {
   const groups = {};
   allSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    let key;
+    if (historyPeriod === 'daily') {
+      key = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short', year:'numeric' });
+    } else if (historyPeriod === 'weekly') {
+      const sow = new Date(d); sow.setDate(d.getDate() - d.getDay());
+      const eow = new Date(sow); eow.setDate(sow.getDate() + 6);
+      key = `${sow.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${eow.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
+    } else {
+      key = d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+    }
     if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
 
