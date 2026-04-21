@@ -218,10 +218,14 @@ function wireSALES() {
   on('print-btn', 'click', handlePrint);
 }
 
+// FIX: Ensure all items in inventory are rendered in the dropdown
 function renderSellDropdown() {
   const sel = $('sell-item'); if (!sel) return;
-  sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${clean(i.name)}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+  const options = inventory.map(i => {
+    const priceText = Number(i.price).toLocaleString();
+    return `<option value="${clean(i.name)}">${clean(i.name)} — ₦${priceText} (${i.qty} left)</option>`;
+  }).join('');
+  sel.innerHTML = `<option value="">-- Select Item --</option>` + options;
 }
 
 function handleAddToCart() {
@@ -247,21 +251,17 @@ window.removeFromCart = (idx) => { cart.splice(idx, 1); updateCartUI(); };
 async function handlePrint() {
   const validCart = cart.filter(Boolean);
   if (!validCart.length) { alert('Cart is empty.'); return; }
-
   const now = new Date();
   const customerName = ($('customer-name')?.value.trim()) || 'Walk-in';
   const cashierName  = getCashier();
-
   const receiptEl = $('receipt');
   if (receiptEl) receiptEl.style.display = 'block';
-
   setText('r-store',    STORE.name || 'StockSavvy Store');
   setText('r-address',  STORE.address || '');
   setText('r-phone',    STORE.phone || '');
   setText('r-customer', customerName);
   setText('r-cashier',  cashierName);
   setText('r-date',     now.toLocaleString('en-GB'));
-
   const rItems = $('r-items');
   if (rItems) {
     rItems.innerHTML = validCart.map(i => `
@@ -272,17 +272,14 @@ async function handlePrint() {
         <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
       </tr>`).join('');
   }
-
   const grandTotal = validCart.reduce((s, i) => s + i.total, 0);
   setText('r-subtotal', grandTotal.toLocaleString());
   setText('r-total',    grandTotal.toLocaleString());
-
   const updates = [];
   validCart.forEach(ci => {
     const inv = inventory.find(i => i.name === ci.name);
     if (inv) updates.push(update(bizRef('inventory/' + inv.id), { qty: Math.max(0, inv.qty - ci.qty) }));
   });
-
   updates.push(push(bizRef('sales'), {
     cashier:   cashierName,
     customer:  customerName,
@@ -290,7 +287,6 @@ async function handlePrint() {
     total:     grandTotal,
     items:     validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
   }));
-
   await Promise.all(updates);
   cart = []; updateCartUI(); if ($('customer-name')) $('customer-name').value = '';
   window.print();
@@ -306,18 +302,22 @@ function wireADMIN() {
   wireCashiers(); 
   wireHistory(); 
   wireBusiness();
-  wireAdminPassword();
+  wireAdminPassword(); 
 }
 
+// FIX: Added proper Admin Password update logic
 function wireAdminPassword() {
   on('save-pw-btn', 'click', async () => {
     const current = $('current-pass').value;
     const next    = $('new-pass').value;
-    const confirm = $('confirm-pass').value;
-    if(!current || !next || !confirm) { alert('Please fill all password fields.'); return; }
-    if(next !== confirm) { alert('New passwords do not match!'); return; }
+    const confirmVal = $('confirm-pass').value;
+    
+    if(!current || !next || !confirmVal) { alert('Please fill all password fields.'); return; }
+    if(next !== confirmVal) { alert('New passwords do not match!'); return; }
+    
     const actual = await getAdminPw();
     if(current !== actual) { alert('Current password incorrect.'); return; }
+    
     try {
       await update(bizRef('config'), { adminPassword: next });
       alert('Admin password updated successfully!');
@@ -347,55 +347,32 @@ function wireBusiness() {
   });
 }
 
-// ── FIXED SALES HISTORY LOGIC ──────────────────────────────────────────────────
 function wireHistory() {
   onValue(bizRef('sales'), snap => {
-    allSales = [];
-    if (snap.exists()) {
-      snap.forEach(c => {
-        allSales.push({ id: c.key, ...c.val() });
-      });
-    }
+    allSales = []; if (snap.exists()) snap.forEach(c => allSales.push({ id: c.key, ...c.val() }));
     renderHistory();
   });
-
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      historyPeriod = btn.dataset.period;
-      renderHistory();
+      btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
     });
   });
 }
 
 function renderHistory() {
-  const container = $('history-content');
-  if (!container) return;
-
-  if (!allSales.length) {
-    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">No sales records found.</div>`;
-    return;
-  }
-
-  // 1. Sort sales by time (Newest First)
-  const sortedSales = [...allSales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  // 2. Group by Date
+  const container = $('history-content'); if (!container) return;
+  if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
   const groups = {};
-  sortedSales.forEach(sale => {
+  allSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    const dateKey = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    if (!groups[dateKey]) groups[dateKey] = [];
-    groups[dateKey].push(sale);
+    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
-
-  // 3. Render Groups
-  container.innerHTML = Object.keys(groups).map(dateKey => {
-    const sales = groups[dateKey];
+  container.innerHTML = Object.keys(groups).reverse().map(key => {
+    const sales = groups[key];
     const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
-
-    const rows = sales.map(sale => {
+    const rows = [...sales].reverse().map(sale => {
       const time = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const itemsText = (sale.items || []).map(i => `${clean(i.name)} (x${i.qty})`).join(', ');
       return `
@@ -407,27 +384,13 @@ function renderHistory() {
           <td style="color:var(--accent3); font-weight:600">₦${(Number(sale.total) || 0).toLocaleString()}</td>
         </tr>`;
     }).join('');
-
     return `
       <div class="history-group">
-        <div class="history-group-title">
-          ${dateKey} 
-          <span style="float:right; font-size:0.85rem; color:var(--text)">Total: ₦${groupTotal.toLocaleString()}</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Cashier</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
+        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
       </div>`;
   }).join('');
 }
