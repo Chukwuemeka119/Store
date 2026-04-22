@@ -357,6 +357,10 @@ function wireHistory() {
       btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
     });
   });
+  on('clear-history-btn', 'click', async () => {
+    if (!confirm('Clear ALL sales history? This cannot be undone.')) return;
+    await remove(bizRef('sales'));
+  });
 }
 
 // FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
@@ -367,7 +371,16 @@ function renderHistory() {
   const groups = {};
   allSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    let key;
+    if (historyPeriod === 'weekly') {
+      const sow = new Date(d); sow.setDate(d.getDate() - d.getDay());
+      const eow = new Date(sow); eow.setDate(sow.getDate() + 6);
+      key = sow.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' – ' + eow.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    } else if (historyPeriod === 'monthly') {
+      key = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    } else {
+      key = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short', year:'numeric' });
+    }
     if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
 
@@ -389,7 +402,7 @@ function renderHistory() {
 
     return `
       <div class="history-group">
-        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
+        <div class="history-group-title">${key}<span class="history-group-total">Total: <span>₦${groupTotal.toLocaleString()}</span></span></div>
         <div class="table-wrap"><table>
           <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
           <tbody>${rows}</tbody>
