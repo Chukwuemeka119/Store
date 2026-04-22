@@ -361,7 +361,6 @@ function wireHistory() {
   });
 }
 
-// FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
 function renderHistory() {
   const container = $('history-list');
   if (!container) return;
