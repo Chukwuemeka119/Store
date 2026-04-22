@@ -474,29 +474,32 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
 
 /* ── PRINT ── */
 @media print {
+  /* Set page size to A5 Portrait */
+  @page {
+    size: A5 portrait;
+    margin: 10mm;
+  }
+
   body * { visibility: hidden; }
   #receipt, #receipt * { visibility: visible; }
+  
   #receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 148mm; /* A5 Width */
     display: block !important;
-    position: absolute; left: 0; top: 0;
-    width: 300px; background: white; color: black;
-    border: none; padding: 20px; font-family: monospace;
+    background: white;
+    color: black;
+    padding: 0;
+    font-size: 12pt;
   }
-  #receipt h2 { color: black !important; -webkit-text-fill-color: black !important; font-size: 1.1rem; margin-bottom: 4px; }
-  #receipt p { color: black; font-size: 0.75rem; margin-bottom: 2px; }
-  #receipt td, #receipt th { color: black; font-size: 0.78rem; padding: 5px 6px; }
-  #receipt .receipt-meta { color: black; font-size: 0.75rem; margin: 10px 0; padding: 8px 0; border-top: 1px dashed #999; border-bottom: 1px dashed #999; }
-  #receipt .receipt-meta span { color: black; font-weight: bold; }
-  #receipt .receipt-meta div { margin-bottom: 3px; }
-  #receipt .receipt-subtotal { color: black; font-size: 0.85rem; text-align: right; margin-top: 8px; }
-  #receipt .receipt-total { color: black !important; -webkit-text-fill-color: black !important; font-size: 1rem; font-weight: bold; text-align: right; margin-top: 4px; padding-top: 6px; border-top: 1px dashed #999; }
-  #receipt .table-wrap { border: none; }
-  #receipt table { font-size: 0.75rem; min-width: unset; }
-  #receipt thead tr { background: transparent; }
-  #receipt th { border-bottom: 1px solid #ccc; color: #555; }
-  #receipt td { border-bottom: 1px dashed #eee; }
-  #receipt .receipt-powered { margin-top:12px; padding-top:10px; border-top:1px solid #ccc; text-align:center; font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.1em; }
-  #receipt .receipt-powered strong { display:block; font-size:12px; font-weight:800; color:#000; margin-top:2px; }
+
+  .navbar, .page-title, .card, .table-wrap:not(#receipt .table-wrap), 
+  .subtotal-bar, .tab-bar, .dash-grid {
+    display: none !important;
+  }
 }
 
 /* ── MOBILE ── */
