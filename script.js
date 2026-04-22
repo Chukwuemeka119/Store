@@ -361,38 +361,18 @@ function wireHistory() {
   });
 }
 
+// FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
 function renderHistory() {
-  const container = $('history-list');
-  if (!container) return;
-
-  if (!allSales.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">No sales history found.</div>';
-    return;
-  }
+  const container = $('history-content'); if (!container) return;
+  if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
 
   const groups = {};
   allSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    let key;
-
-    // ── FIX: LOGIC TO CHANGE GROUPING BASED ON PERIOD ──────────────────────
-    if (historyPeriod === 'monthly') {
-      // Groups by "Month Year" (e.g., "April 2026")
-      key = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-    } else if (historyPeriod === 'weekly') {
-      // Groups by "Week beginning [Date]"
-      const firstDay = new Date(d.setDate(d.getDate() - d.getDay())); 
-      key = `Week of ${firstDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
-    } else {
-      // Default: Daily (e.g., "22 Apr 2026")
-      key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(sale);
+    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
 
-  // Render the groups
   container.innerHTML = Object.keys(groups).reverse().map(key => {
     const sales = groups[key];
     const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
@@ -411,15 +391,11 @@ function renderHistory() {
 
     return `
       <div class="history-group">
-        <div class="history-group-header">
-          <span>${key}</span>
-          <span style="color:var(--success)">₦${groupTotal.toLocaleString()}</span>
-        </div>
-        <div class="table-wrap" style="margin-top:0; border-radius:0">
-          <table style="font-size:0.85rem">
-            ${rows}
-          </table>
-        </div>
+        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
       </div>`;
   }).join('');
 }
