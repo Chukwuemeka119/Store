@@ -476,7 +476,7 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
 @media print {
   @page {
     size: A5 portrait;
-    margin: 0mm;
+    margin: 10mm;
   }
   body * { visibility: hidden; }
   #receipt, #receipt * { visibility: visible; }
@@ -484,7 +484,6 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
     display: block !important;
     position: absolute; left: 0; top: 0;
     width: 100%;
-    height: 100%;
     max-width: 148mm;
     background: white; color: black;
     border: none; padding: 8mm;
