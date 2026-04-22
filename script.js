@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, push, onValue, get, update, remove, set }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, onValue, get, update, remove, set, runTransaction }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ── FIREBASE ──────────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -253,49 +255,65 @@ async function handlePrint() {
   const now = new Date();
   const customerName = ($('customer-name')?.value.trim()) || 'Walk-in';
   const cashierName  = getCashier();
-
-  const receiptEl = $('receipt');
-  if (receiptEl) receiptEl.style.display = 'block';
-
-  setText('r-store',    STORE.name || 'StockSavvy Store');
-  setText('r-address',  STORE.address || '');
-  setText('r-phone',    STORE.phone || '');
-  setText('r-customer', customerName);
-  setText('r-cashier',  cashierName);
-  setText('r-date',     now.toLocaleString('en-GB'));
-
-  const rItems = $('r-items');
-  if (rItems) {
-    rItems.innerHTML = validCart.map(i => `
-      <tr>
-        <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
-        <td style="text-align:center;">${i.qty}</td>
-        <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
-        <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
-      </tr>`).join('');
-  }
-
   const grandTotal = validCart.reduce((s, i) => s + i.total, 0);
-  setText('r-subtotal', grandTotal.toLocaleString());
-  setText('r-total',    grandTotal.toLocaleString());
 
-  const updates = [];
-  validCart.forEach(ci => {
-    const inv = inventory.find(i => i.name === ci.name);
-    if (inv) updates.push(update(bizRef('inventory/' + inv.id), { qty: Math.max(0, inv.qty - ci.qty) }));
+  // 1. ATOMIC STOCK UPDATES (runTransaction)
+  const stockPromises = validCart.map(ci => {
+    const item = inventory.find(i => i.name === ci.name);
+    if (!item) return Promise.resolve();
+    
+    const itemRef = bizRef('inventory/' + item.id);
+    return runTransaction(itemRef, (currentData) => {
+      if (currentData) {
+        // Deduct quantity but never go below 0
+        currentData.qty = Math.max(0, (currentData.qty || 0) - ci.qty);
+      }
+      return currentData;
+    });
   });
 
-  updates.push(push(bizRef('sales'), {
-    cashier:   cashierName,
-    customer:  customerName,
-    timestamp: now.toISOString(),
-    total:     grandTotal,
-    items:     validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
-  }));
+  try {
+    // Wait for all stock transactions to finish
+    await Promise.all(stockPromises);
 
-  await Promise.all(updates);
-  cart = []; updateCartUI(); if ($('customer-name')) $('customer-name').value = '';
-  window.print();
+    // 2. SAVE SALE RECORD
+    await push(bizRef('sales'), {
+      cashier: cashierName,
+      customer: customerName,
+      timestamp: now.toISOString(),
+      total: grandTotal,
+      items: validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
+    });
+
+    // 3. PREPARE RECEIPT UI
+    const receiptEl = $('receipt');
+    if (receiptEl) receiptEl.style.display = 'block';
+    setText('r-store', STORE.name || 'StockSavvy Store');
+    setText('r-customer', customerName);
+    setText('r-cashier', cashierName);
+    setText('r-date', now.toLocaleString('en-GB'));
+    
+    const rItems = $('r-items');
+    if (rItems) {
+      rItems.innerHTML = validCart.map(i => `
+        <tr>
+          <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
+          <td style="text-align:center;">${i.qty}</td>
+          <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
+          <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
+        </tr>`).join('');
+    }
+    setText('r-subtotal', grandTotal.toLocaleString());
+    setText('r-total', grandTotal.toLocaleString());
+
+    // 4. PRINT AND RESET
+    window.print();
+    cart = []; 
+    updateCartUI(); 
+    if ($('customer-name')) $('customer-name').value = '';
+  } catch (e) {
+    alert("Error processing sale: " + e.message);
+  }
 }
 
 function wireADMIN() {
