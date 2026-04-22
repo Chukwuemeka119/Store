@@ -1,6 +1,4 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, onValue, get, update, remove, set }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getDatabase, ref, push, onValue, get, update, remove, set, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -224,7 +222,7 @@ function wireSALES() {
 function renderSellDropdown() {
   const sel = $('sell-item'); if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${i.name}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+    inventory.map(i => `<option value="${clean(i.name)}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
 }
 
 function handleAddToCart() {
@@ -255,65 +253,68 @@ async function handlePrint() {
   const now = new Date();
   const customerName = ($('customer-name')?.value.trim()) || 'Walk-in';
   const cashierName  = getCashier();
-  const grandTotal = validCart.reduce((s, i) => s + i.total, 0);
 
-  // 1. ATOMIC STOCK UPDATES (runTransaction)
-  const stockPromises = validCart.map(ci => {
-    const item = inventory.find(i => i.name === ci.name);
-    if (!item) return Promise.resolve();
-    
-    const itemRef = bizRef('inventory/' + item.id);
-    return runTransaction(itemRef, (currentData) => {
-      if (currentData) {
-        // Deduct quantity but never go below 0
-        currentData.qty = Math.max(0, (currentData.qty || 0) - ci.qty);
-      }
-      return currentData;
-    });
-  });
+  const receiptEl = $('receipt');
+  if (receiptEl) receiptEl.style.display = 'block';
 
-  try {
-    // Wait for all stock transactions to finish
-    await Promise.all(stockPromises);
+  setText('r-store',    STORE.name || 'StockSavvy Store');
+  setText('r-address',  STORE.address || '');
+  setText('r-phone',    STORE.phone || '');
+  setText('r-customer', customerName);
+  setText('r-cashier',  cashierName);
+  setText('r-date',     now.toLocaleString('en-GB'));
 
-    // 2. SAVE SALE RECORD
-    await push(bizRef('sales'), {
-      cashier: cashierName,
-      customer: customerName,
-      timestamp: now.toISOString(),
-      total: grandTotal,
-      items: validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
-    });
-
-    // 3. PREPARE RECEIPT UI
-    const receiptEl = $('receipt');
-    if (receiptEl) receiptEl.style.display = 'block';
-    setText('r-store', STORE.name || 'StockSavvy Store');
-    setText('r-customer', customerName);
-    setText('r-cashier', cashierName);
-    setText('r-date', now.toLocaleString('en-GB'));
-    
-    const rItems = $('r-items');
-    if (rItems) {
-      rItems.innerHTML = validCart.map(i => `
-        <tr>
-          <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
-          <td style="text-align:center;">${i.qty}</td>
-          <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
-          <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
-        </tr>`).join('');
-    }
-    setText('r-subtotal', grandTotal.toLocaleString());
-    setText('r-total', grandTotal.toLocaleString());
-
-    // 4. PRINT AND RESET
-    window.print();
-    cart = []; 
-    updateCartUI(); 
-    if ($('customer-name')) $('customer-name').value = '';
-  } catch (e) {
-    alert("Error processing sale: " + e.message);
+  const rItems = $('r-items');
+  if (rItems) {
+    rItems.innerHTML = validCart.map(i => `
+      <tr>
+        <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
+        <td style="text-align:center;">${i.qty}</td>
+        <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
+        <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
+      </tr>`).join('');
   }
+
+  const grandTotal = validCart.reduce((s, i) => s + i.total, 0);
+  setText('r-subtotal', grandTotal.toLocaleString());
+  setText('r-total',    grandTotal.toLocaleString());
+
+  // Use runTransaction for each item — ensures accurate stock even with concurrent sales
+  const stockErrors = [];
+  await Promise.all(validCart.map(ci => {
+    const inv = inventory.find(i => i.name === ci.name);
+    if (!inv) return Promise.resolve();
+    return runTransaction(bizRef('inventory/' + inv.id + '/qty'), currentQty => {
+      const qty = currentQty ?? inv.qty;
+      if (qty < ci.qty) {
+        // Not enough stock — abort transaction
+        stockErrors.push(`"${ci.name}" has only ${qty} left in stock.`);
+        return; // returning undefined aborts the transaction
+      }
+      const newQty = qty - ci.qty;
+      return newQty <= 0 ? null : newQty; // null removes the item
+    }).then(result => {
+      // If qty reaches 0, remove the whole inventory entry
+      if (result.snapshot.val() === null || result.snapshot.val() === 0) {
+        return remove(bizRef('inventory/' + inv.id));
+      }
+    });
+  }));
+
+  if (stockErrors.length) {
+    alert('Stock error:\n' + stockErrors.join('\n') + '\n\nSale cancelled.');
+    return;
+  }
+
+  await push(bizRef('sales'), {
+    cashier:   cashierName,
+    customer:  customerName,
+    timestamp: now.toISOString(),
+    total:     grandTotal,
+    items:     validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
+  });
+  cart = []; updateCartUI(); if ($('customer-name')) $('customer-name').value = '';
+  window.print();
 }
 
 function wireADMIN() {
@@ -345,23 +346,6 @@ function wireBusiness() {
     const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
     update(bizRef('business'), { name: n, address: a, phone: p });
   });
-
-  on('change-pass-btn', 'click', async () => {
-    const current  = ($('current-pass')?.value  || '');
-    const newPass  = ($('new-pass')?.value       || '').trim();
-    const confirm2 = ($('confirm-pass')?.value   || '').trim();
-    if (!current || !newPass || !confirm2) { alert('Please fill in all password fields.'); return; }
-    if (newPass !== confirm2) { alert('New passwords do not match.'); return; }
-    if (newPass.length < 4)  { alert('Password must be at least 4 characters.'); return; }
-    const correct = await getAdminPw();
-    if (current !== correct) { alert('Current password is incorrect.'); return; }
-    await update(bizRef('config'), { adminPassword: newPass });
-    adminCache = newPass;
-    alert('Admin password changed successfully!');
-    if ($('current-pass')) $('current-pass').value = '';
-    if ($('new-pass'))     $('new-pass').value     = '';
-    if ($('confirm-pass')) $('confirm-pass').value = '';
-  });
 }
 
 function wireHistory() {
@@ -375,10 +359,6 @@ function wireHistory() {
       btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
     });
   });
-  on('clear-history-btn', 'click', async () => {
-    if (!confirm('Clear ALL sales history? This cannot be undone.')) return;
-    await remove(bizRef('sales'));
-  });
 }
 
 // FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
@@ -389,16 +369,7 @@ function renderHistory() {
   const groups = {};
   allSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    let key;
-    if (historyPeriod === 'weekly') {
-      const sow = new Date(d); sow.setDate(d.getDate() - d.getDay());
-      const eow = new Date(sow); eow.setDate(sow.getDate() + 6);
-      key = sow.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' – ' + eow.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-    } else if (historyPeriod === 'monthly') {
-      key = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-    } else {
-      key = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short', year:'numeric' });
-    }
+    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     if (!groups[key]) groups[key] = []; groups[key].push(sale);
   });
 
@@ -420,7 +391,7 @@ function renderHistory() {
 
     return `
       <div class="history-group">
-        <div class="history-group-title">${key}<span class="history-group-total">Total: <span>₦${groupTotal.toLocaleString()}</span></span></div>
+        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
         <div class="table-wrap"><table>
           <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
           <tbody>${rows}</tbody>

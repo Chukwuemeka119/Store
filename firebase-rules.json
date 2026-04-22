@@ -2,9 +2,33 @@
   "rules": {
     "businesses": {
       "$bid": {
-        ".read": true,
-        ".write": true
+        "config": {
+          "active":          { ".read": true,  ".write": false },
+          "adminPassword":   { ".read": true,  ".write": false },
+          "lastPaymentDate": { ".read": true,  ".write": false },
+          "createdAt":       { ".read": true,  ".write": false }
+        },
+        "business": {
+          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+        },
+        "cashiers": {
+          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+        },
+        "inventory": {
+          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+        },
+        "sales": {
+          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+        }
       }
+    },
+    "directory": {
+      ".read": true,
+      ".write": false
     },
     "analytics": {
       ".read": false,
