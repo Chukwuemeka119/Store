@@ -212,7 +212,7 @@ window.deleteItem = async (id, name) => {
 function wireSALES() {
   onValue(bizRef('inventory'), snap => {
     inventory = [];
-    if (snap.exists()) snap.forEach(child => inventory.push({ id: child.key, ...child.val() }));
+    if (snap.exists()) snap.forEach(child => { inventory.push({ id: child.key, ...child.val() }); });
     renderSellDropdown();
   });
   on('sell-btn', 'click', handleAddToCart);
@@ -315,7 +315,7 @@ function wireCashiers() {
   });
   onValue(bizRef('cashiers'), snap => {
     const list = $('cashier-list'); if (!list) return;
-    const items = []; snap.forEach(c => items.push([c.key, c.val()]));
+    const items = []; if (snap.exists()) snap.forEach(c => { items.push([c.key, c.val()]); });
     list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
   });
 }
@@ -348,7 +348,7 @@ function wireBusiness() {
 
 function wireHistory() {
   onValue(bizRef('sales'), snap => {
-    allSales = []; if (snap.exists()) snap.forEach(c => allSales.push({ id: c.key, ...c.val() }));
+    allSales = []; if (snap.exists()) snap.forEach(c => { allSales.push({ id: c.key, ...c.val() }); });
     renderHistory();
   });
   document.querySelectorAll('.period-btn').forEach(btn => {
