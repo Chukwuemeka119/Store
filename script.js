@@ -61,7 +61,6 @@ if (PAGE !== 'login.html' && getBizId()) {
 
 // ── ADMIN PASSWORD HELPERS ────────────────────────────────────────────────────
 async function getAdminPw() {
-  if (adminCache) return adminCache;
   try {
     const snap = await get(bizRef('config/adminPassword'));
     adminCache = snap.exists() ? snap.val() : 'admin123';
@@ -222,7 +221,7 @@ function wireSALES() {
 function renderSellDropdown() {
   const sel = $('sell-item'); if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${i.name}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+    inventory.map(i => `<option value="${clean(i.name)}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
 }
 
 function handleAddToCart() {
@@ -245,7 +244,6 @@ function updateCartUI() {
 
 window.removeFromCart = (idx) => { cart.splice(idx, 1); updateCartUI(); };
 
-// FIX: ENHANCED PRINT DETAIL
 async function handlePrint() {
   const validCart = cart.filter(Boolean);
   if (!validCart.length) { alert('Cart is empty.'); return; }
@@ -305,7 +303,27 @@ function wireADMIN() {
       btn.classList.add('active'); $('tab-' + btn.dataset.tab)?.classList.add('active');
     });
   });
-  wireCashiers(); wireHistory(); wireBusiness();
+  wireCashiers(); 
+  wireHistory(); 
+  wireBusiness();
+  wireAdminPassword();
+}
+
+function wireAdminPassword() {
+  on('save-pw-btn', 'click', async () => {
+    const current = $('current-pass').value;
+    const next    = $('new-pass').value;
+    const confirm = $('confirm-pass').value;
+    if(!current || !next || !confirm) { alert('Please fill all password fields.'); return; }
+    if(next !== confirm) { alert('New passwords do not match!'); return; }
+    const actual = await getAdminPw();
+    if(current !== actual) { alert('Current password incorrect.'); return; }
+    try {
+      await update(bizRef('config'), { adminPassword: next });
+      alert('Admin password updated successfully!');
+      $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
+    } catch (e) { alert('Update failed: ' + e.message); }
+  });
 }
 
 function wireCashiers() {
@@ -316,7 +334,7 @@ function wireCashiers() {
   onValue(bizRef('cashiers'), snap => {
     const list = $('cashier-list'); if (!list) return;
     const items = []; snap.forEach(c => items.push([c.key, c.val()]));
-    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
+    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
   });
 }
 window.deleteCashier = (id) => remove(bizRef('cashiers/' + id));
@@ -325,62 +343,65 @@ function wireBusiness() {
   if ($('biz-name')) { $('biz-name').value = STORE.name; $('biz-address').value = STORE.address; $('biz-phone').value = STORE.phone; }
   on('save-biz-btn', 'click', () => {
     const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
-    update(bizRef('business'), { name: n, address: a, phone: p });
-  });
-
-  on('change-pass-btn', 'click', async () => {
-    const current  = ($('current-pass')?.value  || '');
-    const newPass  = ($('new-pass')?.value       || '').trim();
-    const confirm2 = ($('confirm-pass')?.value   || '').trim();
-    if (!current || !newPass || !confirm2) { alert('Please fill in all password fields.'); return; }
-    if (newPass !== confirm2) { alert('New passwords do not match.'); return; }
-    if (newPass.length < 4)  { alert('Password must be at least 4 characters.'); return; }
-    const correct = await getAdminPw();
-    if (current !== correct) { alert('Current password is incorrect.'); return; }
-    await update(bizRef('config'), { adminPassword: newPass });
-    adminCache = newPass;
-    alert('Admin password changed successfully!');
-    if ($('current-pass')) $('current-pass').value = '';
-    if ($('new-pass'))     $('new-pass').value     = '';
-    if ($('confirm-pass')) $('confirm-pass').value = '';
+    update(bizRef('business'), { name: n, address: a, phone: p }).then(() => alert('Store details updated!'));
   });
 }
 
+// ── FIXED SALES HISTORY LOGIC ──────────────────────────────────────────────────
 function wireHistory() {
   onValue(bizRef('sales'), snap => {
-    allSales = []; if (snap.exists()) snap.forEach(c => allSales.push({ id: c.key, ...c.val() }));
+    allSales = [];
+    if (snap.exists()) {
+      snap.forEach(c => {
+        allSales.push({ id: c.key, ...c.val() });
+      });
+    }
     renderHistory();
   });
+
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
+      btn.classList.add('active');
+      historyPeriod = btn.dataset.period;
+      renderHistory();
     });
   });
 }
 
-// FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
 function renderHistory() {
-  const container = $('history-content'); if (!container) return;
-  if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
+  const container = $('history-content');
+  if (!container) return;
 
+  if (!allSales.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">No sales records found.</div>`;
+    return;
+  }
+
+  // 1. Sort sales by time (Newest First)
+  const sortedSales = [...allSales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // 2. Group by Date
   const groups = {};
-  allSales.forEach(sale => {
+  sortedSales.forEach(sale => {
     const d = new Date(sale.timestamp);
-    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    if (!groups[key]) groups[key] = []; groups[key].push(sale);
+    const dateKey = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(sale);
   });
 
-  container.innerHTML = Object.keys(groups).reverse().map(key => {
-    const sales = groups[key];
+  // 3. Render Groups
+  container.innerHTML = Object.keys(groups).map(dateKey => {
+    const sales = groups[dateKey];
     const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
-    const rows = [...sales].reverse().map(sale => {
+
+    const rows = sales.map(sale => {
       const time = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const itemsText = (sale.items || []).map(i => `${clean(i.name)} (x${i.qty})`).join(', ');
       return `
         <tr>
           <td style="color:var(--muted); font-size:0.75rem">${time}</td>
-          <td><span style="font-weight:600; color:var(--primary)">${clean(sale.cashier || 'Admin')}</span></td>
+          <td><span style="font-weight:600; color:var(--accent)">${clean(sale.cashier || 'Admin')}</span></td>
           <td>${clean(sale.customer || 'Walk-in')}</td>
           <td style="font-size:0.7rem; color:var(--muted)">${itemsText}</td>
           <td style="color:var(--accent3); font-weight:600">₦${(Number(sale.total) || 0).toLocaleString()}</td>
@@ -389,11 +410,24 @@ function renderHistory() {
 
     return `
       <div class="history-group">
-        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
+        <div class="history-group-title">
+          ${dateKey} 
+          <span style="float:right; font-size:0.85rem; color:var(--text)">Total: ₦${groupTotal.toLocaleString()}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Cashier</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`;
   }).join('');
 }
