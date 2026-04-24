@@ -45,6 +45,18 @@ let salesPage = 0;
 const PAGE_SIZE = 20;
 let historyPeriod = 'daily';
 let adminCache    = null;
+// Low stock threshold for alerts
+const LOW_STOCK_THRESHOLD = 5;
+let lowStockAlertShown = false;
+
+function checkLowStockAlert() {
+  const lowItems = inventory.filter(i => i.qty <= LOW_STOCK_THRESHOLD);
+  if (lowItems.length && !lowStockAlertShown) {
+    lowStockAlertShown = true;
+    const names = lowItems.map(i => i.name).join(', ');
+    showToast(`⚠️ Low stock: ${lowItems.length} item(s) at/below ${LOW_STOCK_THRESHOLD} units (${names})`, 'warning');
+  }
+}
 
 // ── ROUTING ───────────────────────────────────────────────────────────────────
 const PAGE = (() => {
@@ -202,10 +214,13 @@ function wireINVENTORY() {
     inventoryFilter = e.target.value.trim().toLowerCase();
     renderInventory();
   });
+  // Low stock export button
+  on('export-csv', 'click', exportInventoryCSV);
   onValue(bizRef('inventory'), snap => {
     inventory = [];
     if (snap.exists()) snap.forEach(child => { inventory.push({ id: child.key, ...child.val() }); });
     renderInventory();
+    checkLowStockAlert();
   });
 }
 
@@ -224,7 +239,7 @@ function renderInventory() {
   const filtered = inventory.filter(item => item.name.toLowerCase().includes(inventoryFilter));
   if (!filtered.length) { body.innerHTML = `<tr><td colspan="4" style="text-align:center">No matching items</td></tr>`; return; }
   body.innerHTML = filtered.map(item => `
-    <tr><td>${clean(item.name)}</td><td>₦${Number(item.price).toLocaleString()}</td><td>${item.qty}</td>
+    <tr><td>${clean(item.name)}</td><td>₦${Number(item.price).toLocaleString()}</td><td${item.qty <= LOW_STOCK_THRESHOLD ? ' style="color:#d9534f; font-weight:bold;"' : ''}>${item.qty}</td>
     <td><button class="btn btn-danger" onclick="deleteItem('${item.id}','${clean(item.name)}')">Remove</button></td></tr>`).join('');
 }
 
@@ -237,6 +252,7 @@ function wireSALES() {
     inventory = [];
     if (snap.exists()) snap.forEach(child => { inventory.push({ id: child.key, ...child.val() }); });
     renderSellDropdown();
+    checkLowStockAlert();
   });
   on('sell-btn', 'click', handleAddToCart);
   on('print-btn', 'click', handlePrint);
@@ -245,15 +261,15 @@ function wireSALES() {
 function renderSellDropdown() {
   const sel = $('sell-item'); if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${clean(i.name)}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+    inventory.map(i => `<option value="${i.id}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
 }
 
 function handleAddToCart() {
-  const name = $('sell-item')?.value; const qty = Number($('sell-qty')?.value);
-  if (!name || qty < 1) return;
-  const item = inventory.find(i => i.name === name);
+  const itemId = $('sell-item')?.value; const qty = Number($('sell-qty')?.value);
+  if (!itemId || qty < 1) return;
+  const item = inventory.find(i => i.id === itemId);
   if (!item || qty > item.qty) { alert('Stock limit exceeded.'); return; }
-  cart.push({ name: item.name, qty, price: item.price, total: qty * item.price });
+  cart.push({ itemId: item.id, name: item.name, qty, price: item.price, total: qty * item.price });
   updateCartUI();
 }
 
@@ -305,20 +321,18 @@ async function handlePrint() {
   // Use runTransaction for each item — ensures accurate stock even with concurrent sales
   const stockErrors = [];
   await Promise.all(validCart.map(ci => {
-    const inv = inventory.find(i => i.name === ci.name);
+    const inv = inventory.find(i => i.id === ci.itemId) || inventory.find(i => i.name === ci.name);
     if (!inv) return Promise.resolve();
     return runTransaction(bizRef('inventory/' + inv.id + '/qty'), currentQty => {
-      const qty = currentQty ?? inv.qty;
+      const qty = currentQty ?? 0;
       if (qty < ci.qty) {
-        // Not enough stock — abort transaction
         stockErrors.push(`"${ci.name}" has only ${qty} left in stock.`);
-        return; // returning undefined aborts the transaction
+        return; // abort
       }
       const newQty = qty - ci.qty;
-      return newQty <= 0 ? null : newQty; // null removes the item
+      return newQty <= 0 ? null : newQty;
     }).then(result => {
-      // If qty reaches 0, remove the whole inventory entry
-      if (result.snapshot.val() === null || result.snapshot.val() === 0) {
+      if (result.snapshot && (result.snapshot.val() === null || result.snapshot.val() === 0)) {
         return remove(bizRef('inventory/' + inv.id));
       }
     });
