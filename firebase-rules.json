@@ -4,7 +4,7 @@
       "$bid": {
         "config": {
           "active":          { ".read": true,  ".write": false },
-          "adminPassword":   { ".read": true,  ".write": false },
+          "adminPassword":   { ".read": false,  ".write": false },
           "lastPaymentDate": { ".read": true,  ".write": false },
           "createdAt":       { ".read": true,  ".write": false }
         },
@@ -18,7 +18,10 @@
         },
         "inventory": {
           ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+          ".write": "root.child('businesses').child($bid).child('config/active').val() === true",
+          "$itemId": {
+            ".validate": "newData.hasChildren(['name','price','qty']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('qty').isNumber() && newData.child('qty').val() >= 0"
+          }
         },
         "sales": {
           ".read": "root.child('businesses').child($bid).child('config/active').val() === true",

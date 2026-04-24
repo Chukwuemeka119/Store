@@ -1,0 +1,15 @@
+{
+  "name": "free-version",
+  "version": "1.0.0",
+  "description": "1. Paste `firebase-rules.json` into Firebase Console → Realtime Database → Rules → Publish 2. Upload all files to your GitHub repo 3. Open `setup-business.html` to create your first customer account 4. Give the customer: the site URL + their business code + admin password",
+  "main": "script.js",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": { "eslint": "^8.57.0" },
+  "type": "commonjs"
+}

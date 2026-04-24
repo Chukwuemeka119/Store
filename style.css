@@ -473,6 +473,27 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
 .card, .login-card, .table-wrap, .dash-card { animation: fadeUp 0.4s ease both; }
 
 /* ── PRINT ── */
+
+/* ── TOAST NOTIFICATIONS ── */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2);
+  color: var(--text);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 9999;
+}
+.toast.show { opacity: 1; }
+.toast-success { background: rgba(106,255,212,0.15); border:1px solid rgba(106,255,212,0.4); color: var(--accent3); }
+.toast-error { background: rgba(255,77,109,0.15); border:1px solid rgba(255,77,109,0.4); color: var(--danger); }
+.toast-info { background: rgba(124,106,255,0.15); border:1px solid rgba(124,106,255,0.4); color: var(--accent); }
+
 @media print {
   @page {
     size: A5 portrait;

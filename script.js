@@ -22,11 +22,27 @@ const $       = id  => document.getElementById(id);
 const on      = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
 const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
 
+function showToast(message, type = 'info') {
+  let toast = $('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = `toast toast-${type} show`;
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STORE         = { name: '', address: '', phone: '' };
 let inventory     = [];
+let inventoryFilter = '';
 let cart          = [];
 let allSales      = [];
+let salesPage = 0;
+const PAGE_SIZE = 20;
 let historyPeriod = 'daily';
 let adminCache    = null;
 
@@ -53,7 +69,7 @@ if (PAGE !== 'login.html' && getBizId()) {
   onValue(ref(db, `businesses/${getBizId()}/config/active`), snap => {
     if (snap.exists() && snap.val() === false) {
       sessionStorage.clear();
-      alert('⚠️ Your account has been deactivated.\nPlease contact Michael Web™ to renew — 08033441185');
+      showToast('⚠️ Your account has been deactivated. Please contact Michael Web™ to renew — 08033441185', 'error');
       location.href = 'login.html';
     }
   });
@@ -80,7 +96,7 @@ if (PAGE === 'admin.html') {
   (async () => {
     const ok = await verifyAdmin('🔐 Enter admin password to access this page:');
     if (!ok) {
-      alert('Incorrect password. Access denied.');
+      showToast('Incorrect password. Access denied.', 'error');
       location.href = 'index.html';
     }
   })();
@@ -151,7 +167,7 @@ async function handleLogin() {
   const bizId = ($('bizcode')?.value || '').trim().toUpperCase();
   const user  = ($('username')?.value || '').trim();
   const pass  = ($('password')?.value || '').trim();
-  if (!bizId || !user || !pass) { alert('Please fill in all fields.'); return; }
+  if (!bizId || !user || !pass) { showToast('Please fill in all fields.', 'error'); return; }
   const btn = $('login-btn');
   if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
   try {
@@ -181,6 +197,11 @@ function wireINDEX() {}
 
 function wireINVENTORY() {
   on('add-item', 'click', handleAddItem);
+  // Search input listener
+  on('inventory-search', 'input', e => {
+    inventoryFilter = e.target.value.trim().toLowerCase();
+    renderInventory();
+  });
   onValue(bizRef('inventory'), snap => {
     inventory = [];
     if (snap.exists()) snap.forEach(child => { inventory.push({ id: child.key, ...child.val() }); });
@@ -199,8 +220,10 @@ function handleAddItem() {
 
 function renderInventory() {
   const body = $('inventory-body'); if (!body) return;
-  if (!inventory.length) { body.innerHTML = `<tr><td colspan="4" style="text-align:center">Empty</td></tr>`; return; }
-  body.innerHTML = inventory.map(item => `
+  // Apply search filter
+  const filtered = inventory.filter(item => item.name.toLowerCase().includes(inventoryFilter));
+  if (!filtered.length) { body.innerHTML = `<tr><td colspan="4" style="text-align:center">No matching items</td></tr>`; return; }
+  body.innerHTML = filtered.map(item => `
     <tr><td>${clean(item.name)}</td><td>₦${Number(item.price).toLocaleString()}</td><td>${item.qty}</td>
     <td><button class="btn btn-danger" onclick="deleteItem('${item.id}','${clean(item.name)}')">Remove</button></td></tr>`).join('');
 }
@@ -325,6 +348,8 @@ function wireADMIN() {
     });
   });
   wireCashiers(); wireHistory(); wireBusiness();
+  on('clear-history-btn', 'click', clearHistory);
+  on('change-pass-btn', 'click', changeAdminPassword);
 }
 
 function wireCashiers() {
@@ -351,12 +376,13 @@ function wireBusiness() {
 function wireHistory() {
   onValue(bizRef('sales'), snap => {
     allSales = []; if (snap.exists()) snap.forEach(c => { allSales.push({ id: c.key, ...c.val() }); });
+    salesPage = 0;
     renderHistory();
   });
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active'); historyPeriod = btn.dataset.period; renderHistory();
+      btn.classList.add('active'); historyPeriod = btn.dataset.period; salesPage = 0; renderHistory();
     });
   });
 }
@@ -366,8 +392,13 @@ function renderHistory() {
   const container = $('history-content'); if (!container) return;
   if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
 
+  // Sort descending by timestamp
+  const sorted = [...allSales].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const visible = sorted.slice(0, PAGE_SIZE * (salesPage + 1));
+
+  // Group by date
   const groups = {};
-  allSales.forEach(sale => {
+  visible.forEach(sale => {
     const d = new Date(sale.timestamp);
     const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     if (!groups[key]) groups[key] = []; groups[key].push(sale);
@@ -398,4 +429,42 @@ function renderHistory() {
         </table></div>
       </div>`;
   }).join('');
+
+  // Load more button if there are more sales
+  if (PAGE_SIZE * (salesPage + 1) < sorted.length) {
+    container.innerHTML += `<div style="text-align:center;margin:16px"><button class="btn btn-primary" id="load-more-sales">Load More</button></div>`;
+    setTimeout(() => {
+      const btn = $('load-more-sales');
+      if (btn) btn.addEventListener('click', () => { salesPage++; renderHistory(); });
+    }, 0);
+  }
+}
+
+// ── CLEAR HISTORY ───────────────────────────────────────────────
+async function clearHistory() {
+  if (!await verifyAdmin('🔐 Confirm clear all sales history:')) return;
+  if (!confirm('This will permanently delete all sales records. Continue?')) return;
+  await remove(bizRef('sales'));
+  showToast('Sales history cleared.', 'success');
+}
+window.clearHistory = clearHistory;
+
+// ── CHANGE ADMIN PASSWORD ─────────────────────────────────────
+async function changeAdminPassword() {
+  const current = $('current-pass')?.value;
+  const newPass = $('new-pass')?.value;
+  const confirmPass = $('confirm-pass')?.value;
+  if (!current || !newPass || !confirmPass) { showToast('Please fill all password fields.', 'error'); return; }
+  if (newPass !== confirmPass) { showToast('New passwords do not match.', 'error'); return; }
+  if (newPass.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+  const correct = await getAdminPw();
+  if (current !== correct) { showToast('Current password is incorrect.', 'error'); return; }
+  await update(bizRef('config'), { adminPassword: newPass });
+  adminCache = null; // clear cache
+  showToast('Admin password changed successfully.', 'success');
+  $('current-pass').value = '';
+  $('new-pass').value = '';
+  $('confirm-pass').value = '';
+}
+window.changeAdminPassword = changeAdminPassword;
 }
