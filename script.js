@@ -481,4 +481,3 @@ async function changeAdminPassword() {
   $('confirm-pass').value = '';
 }
 window.changeAdminPassword = changeAdminPassword;
-}
