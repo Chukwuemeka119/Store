@@ -493,6 +493,7 @@ tbody tr:hover { background: rgba(124,106,255,0.04); }
 .toast-success { background: rgba(106,255,212,0.15); border:1px solid rgba(106,255,212,0.4); color: var(--accent3); }
 .toast-error { background: rgba(255,77,109,0.15); border:1px solid rgba(255,77,109,0.4); color: var(--danger); }
 .toast-info { background: rgba(124,106,255,0.15); border:1px solid rgba(124,106,255,0.4); color: var(--accent); }
+.toast-warning { background: rgba(255,193,7,0.15); border:1px solid rgba(255,193,7,0.4); color: #ffc107; }
 
 @media print {
   @page {

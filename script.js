@@ -247,6 +247,25 @@ window.deleteItem = async (id, name) => {
   if (await verifyAdmin(`🔐 Confirm delete "${name}":`)) await remove(bizRef('inventory/' + id));
 };
 
+function exportInventoryCSV() {
+  if (!inventory.length) { showToast('No inventory to export.', 'info'); return; }
+  const header = ['Item Name', 'Price (NGN)', 'Quantity'];
+  const rows = inventory.map(i => [
+    `"${(i.name || '').replace(/"/g, '""')}"`,
+    Number(i.price).toFixed(2),
+    i.qty
+  ]);
+  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(STORE.name || 'inventory').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Inventory exported.', 'success');
+}
+
 function wireSALES() {
   onValue(bizRef('inventory'), snap => {
     inventory = [];
@@ -329,10 +348,9 @@ async function handlePrint() {
         stockErrors.push(`"${ci.name}" has only ${qty} left in stock.`);
         return; // abort
       }
-      const newQty = qty - ci.qty;
-      return newQty <= 0 ? null : newQty;
+      return Math.max(0, qty - ci.qty);
     }).then(result => {
-      if (result.snapshot && (result.snapshot.val() === null || result.snapshot.val() === 0)) {
+      if (result.committed && result.snapshot.val() === 0) {
         return remove(bizRef('inventory/' + inv.id));
       }
     });
@@ -402,13 +420,32 @@ function wireHistory() {
 }
 
 // FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
+function filterSalesByPeriod(sales) {
+  const now = new Date();
+  if (historyPeriod === 'daily') {
+    const today = now.toDateString();
+    return sales.filter(s => new Date(s.timestamp).toDateString() === today);
+  }
+  if (historyPeriod === 'weekly') {
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return sales.filter(s => new Date(s.timestamp) >= weekAgo);
+  }
+  // monthly
+  return sales.filter(s => {
+    const d = new Date(s.timestamp);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+}
+
 function renderHistory() {
   const container = $('history-content'); if (!container) return;
   if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
 
   // Sort descending by timestamp
   const sorted = [...allSales].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-  const visible = sorted.slice(0, PAGE_SIZE * (salesPage + 1));
+  const filtered = filterSalesByPeriod(sorted);
+  if (!filtered.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records for this period</div>`; return; }
+  const visible = filtered.slice(0, PAGE_SIZE * (salesPage + 1));
 
   // Group by date
   const groups = {};
@@ -445,7 +482,7 @@ function renderHistory() {
   }).join('');
 
   // Load more button if there are more sales
-  if (PAGE_SIZE * (salesPage + 1) < sorted.length) {
+  if (PAGE_SIZE * (salesPage + 1) < filtered.length) {
     container.innerHTML += `<div style="text-align:center;margin:16px"><button class="btn btn-primary" id="load-more-sales">Load More</button></div>`;
     setTimeout(() => {
       const btn = $('load-more-sales');
