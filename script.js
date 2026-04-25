@@ -380,6 +380,12 @@ function wireADMIN() {
     });
   });
   wireCashiers(); wireHistory(); wireBusiness();
+  // Initialize cashier password change UI
+  setTimeout(() => {
+    loadCashiersForPasswordChange();
+    const btn = $('btn-change-pass');
+    if (btn) btn.addEventListener('click', updateCashierPassword);
+  }, 500);
   on('clear-history-btn', 'click', clearHistory);
   on('change-pass-btn', 'click', changeAdminPassword);
 }
@@ -518,3 +524,72 @@ async function changeAdminPassword() {
   $('confirm-pass').value = '';
 }
 window.changeAdminPassword = changeAdminPassword;
+
+/* -------------------------------------------------
+   CASHIER PASSWORD MANAGEMENT (ADMIN PANEL)
+--------------------------------------------------- */
+
+// 1️⃣ Populate the cashier dropdown for password change
+function loadCashiersForPasswordChange() {
+  const select = $('select-cashier-pass');
+  if (!select) return;
+
+  onValue(bizRef('cashiers'), snap => {
+    select.innerHTML = '<option value="">-- Choose Cashier --</option>';
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const c = child.val();
+        select.innerHTML += `<option value="${child.key}">${c.username} (ID: ${child.key})</option>`;
+      });
+    }
+  });
+}
+
+// 2️⃣ Update cashier password (client-side validation + local update)
+async function updateCashierPassword() {
+  const cashierId = $('select-cashier-pass').value;
+  const oldPass   = ($('old-pass')?.value || '').trim();
+  const newPass   = ($('new-pass')?.value || '').trim();
+  const msgEl     = $('pass-result');
+
+  // Reset UI
+  if (msgEl) { msgEl.textContent = ''; msgEl.style.color = ''; }
+
+  // Validation
+  if (!cashierId || !oldPass || !newPass) {
+    if (msgEl) { msgEl.textContent = '⚠️ Fill all fields.'; msgEl.style.color = 'var(--danger)'; }
+    return;
+  }
+  if (newPass.length < 4) {
+    if (msgEl) { msgEl.textContent = '⚠️ Password must be at least 4 characters.'; msgEl.style.color = 'var(--danger)'; }
+    return;
+  }
+
+  try {
+    // Verify current password
+    const snap = await get(bizRef(`cashiers/${cashierId}`));
+    if (!snap.exists() || snap.val().password !== oldPass) {
+      if (msgEl) { msgEl.textContent = '❌ Incorrect current password.'; msgEl.style.color = 'var(--danger)'; }
+      return;
+    }
+
+    // Update password in Firebase
+    await update(bizRef(`cashiers/${cashierId}`), { password: newPass });
+
+    if (msgEl) { msgEl.textContent = '✅ Password updated successfully!'; msgEl.style.color = 'var(--success)'; }
+
+    // Clear fields
+    if ($('old-pass')) $('old-pass').value = '';
+    if ($('new-pass')) $('new-pass').value = '';
+    if ($('select-cashier-pass')) $('select-cashier-pass').value = '';
+  } catch (e) {
+    if (msgEl) { msgEl.textContent = `❌ ${e.message}`; msgEl.style.color = 'var(--danger)'; }
+  }
+}
+
+// Get subscription expiry date
+window.getExpiry = function(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+};

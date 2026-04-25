@@ -56,6 +56,27 @@
   </div>
 </div>
 
+<!-- CASHIER PASSWORD CHANGE CARD -->
+<div class="card" style="max-width:480px;margin-top:20px;">
+  <div class="section-label">🔐 Change Cashier Password</div>
+  <div class="field">
+    <label>Select Cashier</label>
+    <select id="select-cashier-pass" style="width:100%">
+      <option value="">-- Choose Cashier --</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>Current Password</label>
+    <input id="old-pass" type="password" placeholder="Enter current password"/>
+  </div>
+  <div class="field">
+    <label>New Password</label>
+    <input id="new-pass" type="password" placeholder="Enter new password"/>
+  </div>
+  <button class="btn btn-danger" id="btn-change-pass" style="width:100%;margin-top:10px;">Update Password</button>
+  <div id="pass-result" style="margin-top:10px;font-size:0.8rem;"></div>
+</div>
+
 <!-- HISTORY TAB -->
 <div class="tab-panel" id="tab-history">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">

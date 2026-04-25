@@ -3,39 +3,39 @@
     "businesses": {
       "$bid": {
         "config": {
-          "active":          { ".read": true,  ".write": false },
-          "adminPassword":   { ".read": false,  ".write": false },
-          "lastPaymentDate": { ".read": true,  ".write": false },
-          "createdAt":       { ".read": true,  ".write": false }
+          "active": { ".read": true, ".write": false },
+          "adminPassword": { ".read": false, ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true" },
+          "lastPaymentDate": { ".read": true, ".write": true },
+          "createdAt": { ".read": true, ".write": false }
         },
         "business": {
-          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
         },
         "cashiers": {
-          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
         },
         "inventory": {
-          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config/active').val() === true",
+          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true",
           "$itemId": {
             ".validate": "newData.hasChildren(['name','price','qty']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('qty').isNumber() && newData.child('qty').val() >= 0"
           }
         },
         "sales": {
-          ".read": "root.child('businesses').child($bid).child('config/active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config/active').val() === true"
+          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
+          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
         }
       }
     },
     "directory": {
       ".read": true,
-      ".write": false
+      ".write": true
     },
     "analytics": {
       ".read": false,
-      ".write": true
+      ".write": false
     }
   }
 }
