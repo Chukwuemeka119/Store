@@ -41,11 +41,11 @@ let inventory     = [];
 let inventoryFilter = '';
 let cart          = [];
 let allSales      = [];
-let salesPage = 0;
-const PAGE_SIZE = 20;
+let salesPage     = 0;
+const PAGE_SIZE   = 20;
 let historyPeriod = 'daily';
+let reportPeriod  = 'daily';
 let adminCache    = null;
-// Low stock threshold for alerts
 const LOW_STOCK_THRESHOLD = 5;
 let lowStockAlertShown = false;
 
@@ -54,7 +54,7 @@ function checkLowStockAlert() {
   if (lowItems.length && !lowStockAlertShown) {
     lowStockAlertShown = true;
     const names = lowItems.map(i => i.name).join(', ');
-    showToast(`⚠️ Low stock: ${lowItems.length} item(s) at/below ${LOW_STOCK_THRESHOLD} units (${names})`, 'warning');
+    showToast(`\u26A0\uFE0F Low stock: ${lowItems.length} item(s) at/below ${LOW_STOCK_THRESHOLD} units (${names})`, 'warning');
   }
 }
 
@@ -81,18 +81,19 @@ if (PAGE !== 'login.html' && getBizId()) {
   onValue(ref(db, `businesses/${getBizId()}/config/active`), snap => {
     if (snap.exists() && snap.val() === false) {
       sessionStorage.clear();
-      showToast('⚠️ Your account has been deactivated. Please contact Michael Web™ to renew — 08033441185', 'error');
-      location.href = 'login.html';
+      showToast('\u26A0\uFE0F Your account has been deactivated. Contact Michael Web\u2122 \u2014 08033441185', 'error');
+      setTimeout(() => { location.href = 'login.html'; }, 2000);
     }
   });
 }
 
 // ── ADMIN PASSWORD HELPERS ────────────────────────────────────────────────────
+// FIX: Read full config object (parent .read:true allows this; avoids .read:false on adminPassword subnode)
 async function getAdminPw() {
   if (adminCache) return adminCache;
   try {
-    const snap = await get(bizRef('config/adminPassword'));
-    adminCache = snap.exists() ? snap.val() : 'admin123';
+    const snap = await get(bizRef('config'));
+    adminCache = snap.exists() ? (snap.val().adminPassword || 'admin123') : 'admin123';
   } catch { adminCache = 'admin123'; }
   return adminCache;
 }
@@ -106,10 +107,10 @@ async function verifyAdmin(msg = 'Enter admin password:') {
 
 if (PAGE === 'admin.html') {
   (async () => {
-    const ok = await verifyAdmin('🔐 Enter admin password to access this page:');
+    const ok = await verifyAdmin('\uD83D\uDD10 Enter admin password to access this page:');
     if (!ok) {
       showToast('Incorrect password. Access denied.', 'error');
-      location.href = 'index.html';
+      setTimeout(() => { location.href = 'index.html'; }, 1500);
     }
   })();
 }
@@ -140,34 +141,43 @@ function renderNavbar() {
   setText('c-name', STORE.name); setText('c-address', STORE.address); setText('c-phone', STORE.phone);
 }
 
+// ── SUBSCRIPTION ──────────────────────────────────────────────────────────────
+// FIX: Expiry = last day of payment month + 3 grace days (now consistent with setup-business.html)
+function calcExpiry(lastPaidDate) {
+  const lastDayOfMonth = new Date(lastPaidDate.getFullYear(), lastPaidDate.getMonth() + 1, 0);
+  return new Date(lastDayOfMonth.getTime() + 3 * 24 * 60 * 60 * 1000);
+}
+
 async function loadSubscriptionCard() {
   try {
     const snap = await get(ref(db, `businesses/${getBizId()}/config`));
     if (!snap.exists()) return;
-    const cfg = snap.val();
+    const cfg  = snap.val();
     const card = $('sub-card');
     if (!card) return;
     card.style.display = 'flex';
     setText('sub-biz', getBizId());
     if (cfg.lastPaymentDate) {
       const lastPaid = new Date(cfg.lastPaymentDate);
-      const expiry = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, lastPaid.getDate() + 3);
-      const now = new Date();
+      const expiry   = calcExpiry(lastPaid);
+      const now      = new Date();
       const daysLeft = Math.ceil((expiry - now) / 86400000);
-      setText('sub-dates', `Paid: ${lastPaid.toLocaleDateString('en-GB')} · Expires: ${expiry.toLocaleDateString('en-GB')}`);
+      setText('sub-dates', `Paid: ${lastPaid.toLocaleDateString('en-GB')} \u00B7 Expires: ${expiry.toLocaleDateString('en-GB')}`);
       const statusEl = $('sub-status');
       if (now > expiry) {
         statusEl.innerHTML = `<span class="status-badge status-expired">Expired</span>`;
         update(ref(db, `businesses/${getBizId()}/config`), { active: false });
+        update(ref(db, `directory/${getBizId()}/config`), { active: false });
       } else if (daysLeft <= 5) {
-        statusEl.innerHTML = `<span class="status-badge" style="background:rgba(255,193,7,0.1);color:#ffc107;border:1px solid rgba(255,193,7,0.3)">⚠️ ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left</span>`;
+        statusEl.innerHTML = `<span class="status-badge" style="background:rgba(255,193,7,0.1);color:#ffc107;border:1px solid rgba(255,193,7,0.3)">\u26A0\uFE0F ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left</span>`;
       } else {
-        statusEl.innerHTML = `<span class="status-badge status-active">Active · ${daysLeft} days</span>`;
+        statusEl.innerHTML = `<span class="status-badge status-active">Active \u00B7 ${daysLeft} days</span>`;
       }
     }
   } catch {}
 }
 
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
 function wireLOGIN() {
   const bizEl = $('bizcode');
   if (bizEl) bizEl.addEventListener('input', () => { bizEl.value = bizEl.value.toUpperCase(); });
@@ -176,7 +186,7 @@ function wireLOGIN() {
 }
 
 async function handleLogin() {
-  const bizId = ($('bizcode')?.value || '').trim().toUpperCase();
+  const bizId = ($('bizcode')?.value  || '').trim().toUpperCase();
   const user  = ($('username')?.value || '').trim();
   const pass  = ($('password')?.value || '').trim();
   if (!bizId || !user || !pass) { showToast('Please fill in all fields.', 'error'); return; }
@@ -185,11 +195,25 @@ async function handleLogin() {
   try {
     const snap = await get(ref(db, `businesses/${bizId}`));
     if (!snap.exists()) { alert('Business code not found.'); return; }
-    const data = snap.val(); const config = data.config || {};
-    if (config.active === false) { alert('⚠️ Deactivated.'); return; }
+    const data   = snap.val();
+    const config = data.config || {};
+    if (config.active === false) { alert('\u26A0\uFE0F This account is deactivated. Contact Michael Web\u2122 \u2014 08033441185'); return; }
+
+    // Subscription expiry check at login using consistent formula
+    if (config.lastPaymentDate) {
+      const lastPaid = new Date(config.lastPaymentDate);
+      const expiry   = calcExpiry(lastPaid);
+      if (new Date() > expiry) {
+        await update(ref(db, `businesses/${bizId}/config`), { active: false });
+        await update(ref(db, `directory/${bizId}/config`), { active: false });
+        alert('\u26A0\uFE0F Subscription expired. Please renew \u2014 Michael Web\u2122 08033441185');
+        return;
+      }
+    }
+
     let authenticated = false;
     if (user === 'admin') {
-      if (pass === (config.adminPassword || 'admin123')) { authenticated = true; }
+      authenticated = pass === (config.adminPassword || 'admin123');
     } else {
       const cashiers = data.cashiers || {};
       authenticated = Object.values(cashiers).some(c => c.username === user && c.password === pass);
@@ -199,22 +223,24 @@ async function handleLogin() {
       sessionStorage.setItem('cashier', user);
       sessionStorage.setItem('bizId', bizId);
       location.href = 'index.html';
-    } else { alert('Wrong credentials.'); }
-  } catch (err) { alert('Error logging in.'); } finally { if (btn) { btn.textContent = 'Sign In →'; btn.disabled = false; } }
+    } else { alert('Wrong credentials. Please try again.'); }
+  } catch (err) { console.error(err); alert('Error logging in. Check connection.'); }
+  finally { if (btn) { btn.textContent = 'Sign In \u2192'; btn.disabled = false; } }
 }
 
-function handleLogout() { if (confirm('Sign out?')) { sessionStorage.clear(); location.href = 'login.html'; } }
+function handleLogout() {
+  if (confirm('Sign out?')) { sessionStorage.clear(); location.href = 'login.html'; }
+}
 
 function wireINDEX() {}
 
+// ── INVENTORY ─────────────────────────────────────────────────────────────────
 function wireINVENTORY() {
   on('add-item', 'click', handleAddItem);
-  // Search input listener
   on('inventory-search', 'input', e => {
     inventoryFilter = e.target.value.trim().toLowerCase();
     renderInventory();
   });
-  // Low stock export button
   on('export-csv', 'click', exportInventoryCSV);
   onValue(bizRef('inventory'), snap => {
     inventory = [];
@@ -225,26 +251,56 @@ function wireINVENTORY() {
 }
 
 function handleAddItem() {
-  const name = ($('item-name')?.value || '').trim();
+  const name  = ($('item-name')?.value  || '').trim();
   const price = Number($('item-price')?.value);
-  const qty = Number($('item-quantity')?.value);
-  if (!name || price <= 0 || qty <= 0) { alert('Invalid input.'); return; }
+  const qty   = Number($('item-quantity')?.value);
+  if (!name || price < 0 || qty < 0 || isNaN(price) || isNaN(qty)) { alert('Invalid input. Name is required, price and quantity must be 0 or more.'); return; }
   push(bizRef('inventory'), { name, price, qty });
   $('item-name').value = ''; $('item-price').value = ''; $('item-quantity').value = '';
+  showToast(`"${name}" added.`, 'success');
 }
 
 function renderInventory() {
   const body = $('inventory-body'); if (!body) return;
-  // Apply search filter
   const filtered = inventory.filter(item => item.name.toLowerCase().includes(inventoryFilter));
-  if (!filtered.length) { body.innerHTML = `<tr><td colspan="4" style="text-align:center">No matching items</td></tr>`; return; }
+  if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">No matching items</td></tr>`;
+    return;
+  }
   body.innerHTML = filtered.map(item => `
-    <tr><td>${clean(item.name)}</td><td>₦${Number(item.price).toLocaleString()}</td><td${item.qty <= LOW_STOCK_THRESHOLD ? ' style="color:#d9534f; font-weight:bold;"' : ''}>${item.qty}</td>
-    <td><button class="btn btn-danger" onclick="deleteItem('${item.id}','${clean(item.name)}')">Remove</button></td></tr>`).join('');
+    <tr>
+      <td>${clean(item.name)}</td>
+      <td>\u20A6${Number(item.price).toLocaleString()}</td>
+      <td${item.qty <= LOW_STOCK_THRESHOLD ? ' style="color:#d9534f;font-weight:bold"' : ''}>${item.qty}${item.qty <= LOW_STOCK_THRESHOLD ? ' \u26A0\uFE0F' : ''}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.7rem" onclick="editItem('${item.id}','${clean(item.name).replace(/'/g,"\\'")}',${item.price},${item.qty})">&#9998; Edit</button>
+        <button class="btn btn-danger" style="padding:6px 12px;font-size:0.7rem" onclick="deleteItem('${item.id}','${clean(item.name).replace(/'/g,"\\'")}')">&#10005; Remove</button>
+      </td>
+    </tr>`).join('');
 }
 
+window.editItem = async (id, curName, curPrice, curQty) => {
+  const newName = window.prompt('Item name:', curName);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) { alert('Name cannot be empty.'); return; }
+  const rawPrice = window.prompt('Price (\u20A6):', curPrice);
+  if (rawPrice === null) return;
+  const newPrice = Number(rawPrice);
+  if (isNaN(newPrice) || newPrice < 0) { alert('Invalid price.'); return; }
+  const rawQty = window.prompt('Quantity:', curQty);
+  if (rawQty === null) return;
+  const newQty = Number(rawQty);
+  if (isNaN(newQty) || newQty < 0) { alert('Invalid quantity.'); return; }
+  await update(bizRef('inventory/' + id), { name: trimmed, price: newPrice, qty: newQty });
+  showToast('Item updated.', 'success');
+};
+
 window.deleteItem = async (id, name) => {
-  if (await verifyAdmin(`🔐 Confirm delete "${name}":`)) await remove(bizRef('inventory/' + id));
+  if (await verifyAdmin(`\uD83D\uDD10 Confirm delete "${name}":`)) {
+    await remove(bizRef('inventory/' + id));
+    showToast(`"${name}" removed.`, 'success');
+  }
 };
 
 function exportInventoryCSV() {
@@ -255,17 +311,18 @@ function exportInventoryCSV() {
     Number(i.price).toFixed(2),
     i.qty
   ]);
-  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const csv  = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
   a.download = `${(STORE.name || 'inventory').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Inventory exported.', 'success');
 }
 
+// ── SALES ─────────────────────────────────────────────────────────────────────
 function wireSALES() {
   onValue(bizRef('inventory'), snap => {
     inventory = [];
@@ -273,21 +330,23 @@ function wireSALES() {
     renderSellDropdown();
     checkLowStockAlert();
   });
-  on('sell-btn', 'click', handleAddToCart);
+  on('sell-btn',  'click', handleAddToCart);
   on('print-btn', 'click', handlePrint);
 }
 
 function renderSellDropdown() {
   const sel = $('sell-item'); if (!sel) return;
   sel.innerHTML = `<option value="">-- Select Item --</option>` +
-    inventory.map(i => `<option value="${i.id}">${clean(i.name)} — ₦${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
+    inventory.map(i => `<option value="${i.id}">${clean(i.name)} \u2014 \u20A6${Number(i.price).toLocaleString()} (${i.qty} left)</option>`).join('');
 }
 
 function handleAddToCart() {
-  const itemId = $('sell-item')?.value; const qty = Number($('sell-qty')?.value);
+  const itemId = $('sell-item')?.value;
+  const qty    = Number($('sell-qty')?.value);
   if (!itemId || qty < 1) return;
   const item = inventory.find(i => i.id === itemId);
-  if (!item || qty > item.qty) { alert('Stock limit exceeded.'); return; }
+  if (!item) { alert('Item not found.'); return; }
+  if (qty > item.qty) { alert(`Only ${item.qty} left in stock.`); return; }
   cart.push({ itemId: item.id, name: item.name, qty, price: item.price, total: qty * item.price });
   updateCartUI();
 }
@@ -295,26 +354,38 @@ function handleAddToCart() {
 function updateCartUI() {
   const body = $('sell-body'); if (!body) return;
   body.innerHTML = cart.map((i, idx) => `
-    <tr><td>${clean(i.name)}</td><td>${i.qty}</td><td>₦${Number(i.price).toLocaleString()}</td><td>₦${i.total.toLocaleString()}</td>
-    <td><button class="btn btn-danger" onclick="removeFromCart(${idx})">✕</button></td></tr>`).join('');
+    <tr>
+      <td>${clean(i.name)}</td>
+      <td>${i.qty}</td>
+      <td>\u20A6${Number(i.price).toLocaleString()}</td>
+      <td>\u20A6${i.total.toLocaleString()}</td>
+      <td><button class="btn btn-danger" onclick="removeFromCart(${idx})">&#10005;</button></td>
+    </tr>`).join('');
   const total = cart.reduce((s, i) => s + i.total, 0);
   setText('subtotal', total.toLocaleString());
 }
 
 window.removeFromCart = (idx) => { cart.splice(idx, 1); updateCartUI(); };
 
-// FIX: ENHANCED PRINT DETAIL
 async function handlePrint() {
   const validCart = cart.filter(Boolean);
   if (!validCart.length) { alert('Cart is empty.'); return; }
 
-  const now = new Date();
+  // PRE-CHECK: client-side stock guard before committing transactions
+  const preErrors = [];
+  for (const ci of validCart) {
+    const inv = inventory.find(i => i.id === ci.itemId) || inventory.find(i => i.name === ci.name);
+    if (!inv) { preErrors.push(`"${ci.name}" not found in inventory.`); continue; }
+    if (inv.qty < ci.qty) { preErrors.push(`"${ci.name}" has only ${inv.qty} left (need ${ci.qty}).`); }
+  }
+  if (preErrors.length) { alert('Stock check failed:\n' + preErrors.join('\n')); return; }
+
+  const now          = new Date();
   const customerName = ($('customer-name')?.value.trim()) || 'Walk-in';
   const cashierName  = getCashier();
 
   const receiptEl = $('receipt');
   if (receiptEl) receiptEl.style.display = 'block';
-
   setText('r-store',    STORE.name || 'StockSavvy Store');
   setText('r-address',  STORE.address || '');
   setText('r-phone',    STORE.phone || '');
@@ -326,10 +397,10 @@ async function handlePrint() {
   if (rItems) {
     rItems.innerHTML = validCart.map(i => `
       <tr>
-        <td style="text-align:left; padding: 4px 0;">${clean(i.name)}</td>
-        <td style="text-align:center;">${i.qty}</td>
-        <td style="text-align:right;">₦${Number(i.price).toLocaleString()}</td>
-        <td style="text-align:right;">₦${(i.qty * i.price).toLocaleString()}</td>
+        <td style="text-align:left;padding:4px 0">${clean(i.name)}</td>
+        <td style="text-align:center">${i.qty}</td>
+        <td style="text-align:right">\u20A6${Number(i.price).toLocaleString()}</td>
+        <td style="text-align:right">\u20A6${(i.qty * i.price).toLocaleString()}</td>
       </tr>`).join('');
   }
 
@@ -337,17 +408,14 @@ async function handlePrint() {
   setText('r-subtotal', grandTotal.toLocaleString());
   setText('r-total',    grandTotal.toLocaleString());
 
-  // Use runTransaction for each item — ensures accurate stock even with concurrent sales
+  // Atomic stock deduction via transactions
   const stockErrors = [];
   await Promise.all(validCart.map(ci => {
     const inv = inventory.find(i => i.id === ci.itemId) || inventory.find(i => i.name === ci.name);
     if (!inv) return Promise.resolve();
     return runTransaction(bizRef('inventory/' + inv.id + '/qty'), currentQty => {
       const qty = currentQty ?? 0;
-      if (qty < ci.qty) {
-        stockErrors.push(`"${ci.name}" has only ${qty} left in stock.`);
-        return; // abort
-      }
+      if (qty < ci.qty) { stockErrors.push(`"${ci.name}" has only ${qty} left.`); return; }
       return Math.max(0, qty - ci.qty);
     }).then(result => {
       if (result.committed && result.snapshot.val() === 0) {
@@ -368,228 +436,44 @@ async function handlePrint() {
     total:     grandTotal,
     items:     validCart.map(i => ({ name: i.name, qty: i.qty, price: i.price, total: i.total }))
   });
-  cart = []; updateCartUI(); if ($('customer-name')) $('customer-name').value = '';
+
+  cart = []; updateCartUI();
+  if ($('customer-name')) $('customer-name').value = '';
   window.print();
 }
 
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
 function wireADMIN() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn, .tab-panel').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active'); $('tab-' + btn.dataset.tab)?.classList.add('active');
+      btn.classList.add('active');
+      $('tab-' + btn.dataset.tab)?.classList.add('active');
+      // Refresh reports when switching to that tab
+      if (btn.dataset.tab === 'reports') renderReports();
     });
   });
-  wireCashiers(); wireHistory(); wireBusiness();
-  // Initialize cashier password change UI
-  setTimeout(() => {
-    loadCashiersForPasswordChange();
-    const btn = $('btn-change-pass');
-    if (btn) btn.addEventListener('click', updateCashierPassword);
-  }, 500);
+  wireCashiers();
+  wireHistory();
+  wireBusiness();
+  wireReports();                         // FIX: direct call, no setTimeout
+  loadCashiersForPasswordChange();       // FIX: direct call, no setTimeout
+  const passBtn = $('btn-change-pass');
+  if (passBtn) passBtn.addEventListener('click', updateCashierPassword);
   on('clear-history-btn', 'click', clearHistory);
-  on('change-pass-btn', 'click', changeAdminPassword);
+  on('change-pass-btn',   'click', changeAdminPassword);
 }
 
+// ── CASHIERS ──────────────────────────────────────────────────────────────────
 function wireCashiers() {
   on('create-cashier-btn', 'click', async () => {
-    const u = $('cashier-name').value.trim(); const p = $('cashier-pass').value.trim();
-    if (u && p) { await push(bizRef('cashiers'), { username: u, password: p }); $('cashier-name').value = ''; $('cashier-pass').value = ''; }
+    const u = ($('cashier-name')?.value || '').trim();
+    const p = ($('cashier-pass')?.value || '').trim();
+    if (!u || !p) { showToast('Enter both username and password.', 'error'); return; }
+    if (p.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+    await push(bizRef('cashiers'), { username: u, password: p });
+    $('cashier-name').value = ''; $('cashier-pass').value = '';
+    showToast(`Cashier "${u}" created.`, 'success');
   });
   onValue(bizRef('cashiers'), snap => {
-    const list = $('cashier-list'); if (!list) return;
-    const items = []; if (snap.exists()) snap.forEach(c => { items.push([c.key, c.val()]); });
-    list.innerHTML = items.map(([id, c]) => `<tr><td>${clean(c.username)}</td><td><button onclick="deleteCashier('${id}')">Remove</button></td></tr>`).join('');
-  });
-}
-window.deleteCashier = (id) => remove(bizRef('cashiers/' + id));
-
-function wireBusiness() {
-  if ($('biz-name')) { $('biz-name').value = STORE.name; $('biz-address').value = STORE.address; $('biz-phone').value = STORE.phone; }
-  on('save-biz-btn', 'click', () => {
-    const n = $('biz-name').value; const a = $('biz-address').value; const p = $('biz-phone').value;
-    update(bizRef('business'), { name: n, address: a, phone: p });
-  });
-}
-
-function wireHistory() {
-  onValue(bizRef('sales'), snap => {
-    allSales = []; if (snap.exists()) snap.forEach(c => { allSales.push({ id: c.key, ...c.val() }); });
-    salesPage = 0;
-    renderHistory();
-  });
-  document.querySelectorAll('.period-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active'); historyPeriod = btn.dataset.period; salesPage = 0; renderHistory();
-    });
-  });
-}
-
-// FIX: ENHANCED SALES HISTORY WITH CASHIER NAMES
-function filterSalesByPeriod(sales) {
-  const now = new Date();
-  if (historyPeriod === 'daily') {
-    const today = now.toDateString();
-    return sales.filter(s => new Date(s.timestamp).toDateString() === today);
-  }
-  if (historyPeriod === 'weekly') {
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return sales.filter(s => new Date(s.timestamp) >= weekAgo);
-  }
-  // monthly
-  return sales.filter(s => {
-    const d = new Date(s.timestamp);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-}
-
-function renderHistory() {
-  const container = $('history-content'); if (!container) return;
-  if (!allSales.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records</div>`; return; }
-
-  // Sort descending by timestamp
-  const sorted = [...allSales].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-  const filtered = filterSalesByPeriod(sorted);
-  if (!filtered.length) { container.innerHTML = `<div style="text-align:center;padding:40px">No records for this period</div>`; return; }
-  const visible = filtered.slice(0, PAGE_SIZE * (salesPage + 1));
-
-  // Group by date
-  const groups = {};
-  visible.forEach(sale => {
-    const d = new Date(sale.timestamp);
-    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    if (!groups[key]) groups[key] = []; groups[key].push(sale);
-  });
-
-  container.innerHTML = Object.keys(groups).reverse().map(key => {
-    const sales = groups[key];
-    const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
-    const rows = [...sales].reverse().map(sale => {
-      const time = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const itemsText = (sale.items || []).map(i => `${clean(i.name)} (x${i.qty})`).join(', ');
-      return `
-        <tr>
-          <td style="color:var(--muted); font-size:0.75rem">${time}</td>
-          <td><span style="font-weight:600; color:var(--primary)">${clean(sale.cashier || 'Admin')}</span></td>
-          <td>${clean(sale.customer || 'Walk-in')}</td>
-          <td style="font-size:0.7rem; color:var(--muted)">${itemsText}</td>
-          <td style="color:var(--accent3); font-weight:600">₦${(Number(sale.total) || 0).toLocaleString()}</td>
-        </tr>`;
-    }).join('');
-
-    return `
-      <div class="history-group">
-        <div class="history-group-title">${key} <span>Total: ₦${groupTotal.toLocaleString()}</span></div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>`;
-  }).join('');
-
-  // Load more button if there are more sales
-  if (PAGE_SIZE * (salesPage + 1) < filtered.length) {
-    container.innerHTML += `<div style="text-align:center;margin:16px"><button class="btn btn-primary" id="load-more-sales">Load More</button></div>`;
-    setTimeout(() => {
-      const btn = $('load-more-sales');
-      if (btn) btn.addEventListener('click', () => { salesPage++; renderHistory(); });
-    }, 0);
-  }
-}
-
-// ── CLEAR HISTORY ───────────────────────────────────────────────
-async function clearHistory() {
-  if (!await verifyAdmin('🔐 Confirm clear all sales history:')) return;
-  if (!confirm('This will permanently delete all sales records. Continue?')) return;
-  await remove(bizRef('sales'));
-  showToast('Sales history cleared.', 'success');
-}
-window.clearHistory = clearHistory;
-
-// ── CHANGE ADMIN PASSWORD ─────────────────────────────────────
-async function changeAdminPassword() {
-  const current = $('current-pass')?.value;
-  const newPass = $('new-pass')?.value;
-  const confirmPass = $('confirm-pass')?.value;
-  if (!current || !newPass || !confirmPass) { showToast('Please fill all password fields.', 'error'); return; }
-  if (newPass !== confirmPass) { showToast('New passwords do not match.', 'error'); return; }
-  if (newPass.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
-  const correct = await getAdminPw();
-  if (current !== correct) { showToast('Current password is incorrect.', 'error'); return; }
-  await update(bizRef('config'), { adminPassword: newPass });
-  adminCache = null; // clear cache
-  showToast('Admin password changed successfully.', 'success');
-  $('current-pass').value = '';
-  $('new-pass').value = '';
-  $('confirm-pass').value = '';
-}
-window.changeAdminPassword = changeAdminPassword;
-
-/* -------------------------------------------------
-   CASHIER PASSWORD MANAGEMENT (ADMIN PANEL)
---------------------------------------------------- */
-
-// 1️⃣ Populate the cashier dropdown for password change
-function loadCashiersForPasswordChange() {
-  const select = $('select-cashier-pass');
-  if (!select) return;
-
-  onValue(bizRef('cashiers'), snap => {
-    select.innerHTML = '<option value="">-- Choose Cashier --</option>';
-    if (snap.exists()) {
-      snap.forEach(child => {
-        const c = child.val();
-        select.innerHTML += `<option value="${child.key}">${c.username} (ID: ${child.key})</option>`;
-      });
-    }
-  });
-}
-
-// 2️⃣ Update cashier password (client-side validation + local update)
-async function updateCashierPassword() {
-  const cashierId = $('select-cashier-pass').value;
-  const oldPass   = ($('old-pass')?.value || '').trim();
-  const newPass   = ($('new-pass')?.value || '').trim();
-  const msgEl     = $('pass-result');
-
-  // Reset UI
-  if (msgEl) { msgEl.textContent = ''; msgEl.style.color = ''; }
-
-  // Validation
-  if (!cashierId || !oldPass || !newPass) {
-    if (msgEl) { msgEl.textContent = '⚠️ Fill all fields.'; msgEl.style.color = 'var(--danger)'; }
-    return;
-  }
-  if (newPass.length < 4) {
-    if (msgEl) { msgEl.textContent = '⚠️ Password must be at least 4 characters.'; msgEl.style.color = 'var(--danger)'; }
-    return;
-  }
-
-  try {
-    // Verify current password
-    const snap = await get(bizRef(`cashiers/${cashierId}`));
-    if (!snap.exists() || snap.val().password !== oldPass) {
-      if (msgEl) { msgEl.textContent = '❌ Incorrect current password.'; msgEl.style.color = 'var(--danger)'; }
-      return;
-    }
-
-    // Update password in Firebase
-    await update(bizRef(`cashiers/${cashierId}`), { password: newPass });
-
-    if (msgEl) { msgEl.textContent = '✅ Password updated successfully!'; msgEl.style.color = 'var(--success)'; }
-
-    // Clear fields
-    if ($('old-pass')) $('old-pass').value = '';
-    if ($('new-pass')) $('new-pass').value = '';
-    if ($('select-cashier-pass')) $('select-cashier-pass').value = '';
-  } catch (e) {
-    if (msgEl) { msgEl.textContent = `❌ ${e.message}`; msgEl.style.color = 'var(--danger)'; }
-  }
-}
-
-// Get subscription expiry date
-window.getExpiry = function(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString();
-};
+    const list = $('cashier-l
