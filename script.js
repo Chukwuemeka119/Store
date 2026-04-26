@@ -142,11 +142,13 @@ function renderNavbar() {
 }
 
 // ── SUBSCRIPTION ──────────────────────────────────────────────────────────────
-// FIX: Expiry = last day of payment month + 3 grace days (now consistent with setup-business.html)
+// FIX: Expiry = 30 days after last payment date + 3 grace days
 function calcExpiry(lastPaidDate) {
-  const lastDayOfMonth = new Date(lastPaidDate.getFullYear(), lastPaidDate.getMonth() + 1, 0);
-  return new Date(lastDayOfMonth.getTime() + 3 * 24 * 60 * 60 * 1000);
+  // Convert lastPaidDate to a timestamp and add 30 days + 3 days in milliseconds
+  const expiryTime = lastPaidDate.getTime() + (30 + 3) * 24 * 60 * 60 * 1000;
+  return new Date(expiryTime);
 }
+
 
 async function loadSubscriptionCard() {
   try {
