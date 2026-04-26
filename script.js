@@ -476,4 +476,316 @@ function wireCashiers() {
     showToast(`Cashier "${u}" created.`, 'success');
   });
   onValue(bizRef('cashiers'), snap => {
-    const list = $('cashier-l
+    const list = $('cashier-list'); if (!list) return;
+    const items = [];
+    if (snap.exists()) snap.forEach(c => { items.push([c.key, c.val()]); });
+    if (!items.length) {
+      list.innerHTML = `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:24px">No cashiers yet</td></tr>`;
+      return;
+    }
+    list.innerHTML = items.map(([id, c]) =>
+      `<tr><td>${clean(c.username)}</td><td><button class="btn btn-danger" style="padding:5px 12px;font-size:0.7rem" onclick="deleteCashier('${id}','${clean(c.username).replace(/'/g,"\\'")}')">Remove</button></td></tr>`
+    ).join('');
+  });
+}
+
+window.deleteCashier = async (id, name) => {
+  if (confirm(`Remove cashier "${name}"?`)) {
+    await remove(bizRef('cashiers/' + id));
+    showToast(`Cashier "${name}" removed.`, 'success');
+  }
+};
+
+// ── CASHIER PASSWORD CHANGE ───────────────────────────────────────────────────
+function loadCashiersForPasswordChange() {
+  const select = $('select-cashier-pass'); if (!select) return;
+  onValue(bizRef('cashiers'), snap => {
+    select.innerHTML = '<option value="">-- Choose Cashier --</option>';
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const c = child.val();
+        select.innerHTML += `<option value="${child.key}">${clean(c.username)}</option>`;
+      });
+    }
+  });
+}
+
+// FIX: Updated to use renamed field IDs (cashier-old-pass, cashier-new-pass)
+// These no longer conflict with the admin password change fields (current-pass, new-pass, confirm-pass)
+async function updateCashierPassword() {
+  const cashierId = ($('select-cashier-pass')?.value || '').trim();
+  const oldPass   = ($('cashier-old-pass')?.value    || '').trim();
+  const newPass   = ($('cashier-new-pass')?.value    || '').trim();
+  const msgEl     = $('pass-result');
+  if (msgEl) { msgEl.textContent = ''; msgEl.style.color = ''; }
+  if (!cashierId || !oldPass || !newPass) {
+    if (msgEl) { msgEl.textContent = '\u26A0\uFE0F Fill all fields.'; msgEl.style.color = 'var(--danger)'; }
+    return;
+  }
+  if (newPass.length < 4) {
+    if (msgEl) { msgEl.textContent = '\u26A0\uFE0F Password must be at least 4 characters.'; msgEl.style.color = 'var(--danger)'; }
+    return;
+  }
+  try {
+    const snap = await get(bizRef(`cashiers/${cashierId}`));
+    if (!snap.exists() || snap.val().password !== oldPass) {
+      if (msgEl) { msgEl.textContent = '\u274C Incorrect current password.'; msgEl.style.color = 'var(--danger)'; }
+      return;
+    }
+    await update(bizRef(`cashiers/${cashierId}`), { password: newPass });
+    if (msgEl) { msgEl.textContent = '\u2705 Password updated!'; msgEl.style.color = 'var(--success)'; }
+    if ($('cashier-old-pass')) $('cashier-old-pass').value = '';
+    if ($('cashier-new-pass')) $('cashier-new-pass').value = '';
+    if ($('select-cashier-pass')) $('select-cashier-pass').value = '';
+  } catch (e) {
+    if (msgEl) { msgEl.textContent = `\u274C ${e.message}`; msgEl.style.color = 'var(--danger)'; }
+  }
+}
+
+// ── SALES HISTORY ─────────────────────────────────────────────────────────────
+function wireHistory() {
+  onValue(bizRef('sales'), snap => {
+    allSales = [];
+    if (snap.exists()) snap.forEach(c => { allSales.push({ id: c.key, ...c.val() }); });
+    salesPage = 0;
+    renderHistory();
+    renderReports(); // Keep reports in sync whenever sales data changes
+  });
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      historyPeriod = btn.dataset.period;
+      salesPage = 0;
+      renderHistory();
+    });
+  });
+}
+
+// FIX: Accept optional period param so History and Reports can each use their own period
+function filterSalesByPeriod(sales, period) {
+  period = period || historyPeriod;
+  const now = new Date();
+  if (period === 'daily') {
+    const today = now.toDateString();
+    return sales.filter(s => new Date(s.timestamp).toDateString() === today);
+  }
+  if (period === 'weekly') {
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return sales.filter(s => new Date(s.timestamp) >= weekAgo);
+  }
+  return sales.filter(s => {
+    const d = new Date(s.timestamp);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+}
+
+function renderHistory() {
+  const container = $('history-content'); if (!container) return;
+  if (!allSales.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">No records yet</div>`;
+    return;
+  }
+  const sorted   = [...allSales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const filtered = filterSalesByPeriod(sorted);
+  if (!filtered.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">No records for this period</div>`;
+    return;
+  }
+  const visible = filtered.slice(0, PAGE_SIZE * (salesPage + 1));
+  const groups  = {};
+  visible.forEach(sale => {
+    const d   = new Date(sale.timestamp);
+    const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(sale);
+  });
+
+  container.innerHTML = Object.keys(groups).reverse().map(key => {
+    const sales      = groups[key];
+    const groupTotal = sales.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
+    const rows       = [...sales].reverse().map(sale => {
+      const time      = new Date(sale.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const itemsText = (sale.items || []).map(i => `${clean(i.name)} (x${i.qty})`).join(', ');
+      return `
+        <tr>
+          <td style="color:var(--muted);font-size:0.75rem">${time}</td>
+          <td><span style="font-weight:600;color:var(--accent)">${clean(sale.cashier || 'Admin')}</span></td>
+          <td>${clean(sale.customer || 'Walk-in')}</td>
+          <td style="font-size:0.7rem;color:var(--muted)">${itemsText}</td>
+          <td style="color:var(--accent3);font-weight:600">\u20A6${(Number(sale.total) || 0).toLocaleString()}</td>
+        </tr>`;
+    }).join('');
+    return `
+      <div class="history-group">
+        <div class="history-group-title">${key} <span>Total: \u20A6${groupTotal.toLocaleString()}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Time</th><th>Cashier</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>`;
+  }).join('');
+
+  if (PAGE_SIZE * (salesPage + 1) < filtered.length) {
+    container.innerHTML += `<div style="text-align:center;margin:16px"><button class="btn btn-primary" id="load-more-sales">Load More</button></div>`;
+    setTimeout(() => {
+      const btn = $('load-more-sales');
+      if (btn) btn.addEventListener('click', () => { salesPage++; renderHistory(); });
+    }, 0);
+  }
+}
+
+async function clearHistory() {
+  if (!await verifyAdmin('\uD83D\uDD10 Confirm clear all sales history:')) return;
+  if (!confirm('This will permanently delete ALL sales records. Continue?')) return;
+  await remove(bizRef('sales'));
+  showToast('Sales history cleared.', 'success');
+}
+window.clearHistory = clearHistory;
+
+// ── BUSINESS SETTINGS ─────────────────────────────────────────────────────────
+function wireBusiness() {
+  if ($('biz-name')) {
+    $('biz-name').value    = STORE.name;
+    $('biz-address').value = STORE.address;
+    $('biz-phone').value   = STORE.phone;
+  }
+  on('save-biz-btn', 'click', async () => {
+    const n = ($('biz-name')?.value    || '').trim();
+    const a = ($('biz-address')?.value || '').trim();
+    const p = ($('biz-phone')?.value   || '').trim();
+    if (!n) { showToast('Store name is required.', 'error'); return; }
+    await update(bizRef('business'), { name: n, address: a, phone: p });
+    STORE.name = n; STORE.address = a; STORE.phone = p;
+    renderNavbar();
+    showToast('Business details saved.', 'success');
+  });
+}
+
+// Admin password change — uses unique IDs: current-pass, new-pass, confirm-pass
+// FIX: These IDs no longer duplicate with cashier section (which uses cashier-old-pass, cashier-new-pass)
+async function changeAdminPassword() {
+  const current     = ($('current-pass')?.value  || '').trim();
+  const newPass     = ($('new-pass')?.value      || '').trim();
+  const confirmPass = ($('confirm-pass')?.value  || '').trim();
+  if (!current || !newPass || !confirmPass) { showToast('Please fill all password fields.', 'error'); return; }
+  if (newPass !== confirmPass) { showToast('New passwords do not match.', 'error'); return; }
+  if (newPass.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+  const correct = await getAdminPw();
+  if (current !== correct) { showToast('Current password is incorrect.', 'error'); return; }
+  await update(bizRef('config'), { adminPassword: newPass });
+  adminCache = null;
+  showToast('Admin password changed successfully.', 'success');
+  $('current-pass').value = ''; $('new-pass').value = ''; $('confirm-pass').value = '';
+}
+window.changeAdminPassword = changeAdminPassword;
+
+// ── REPORTS TAB — NEW FEATURE ─────────────────────────────────────────────────
+// Revenue analytics: summary stats, top selling items, revenue by cashier, CSV export
+function wireReports() {
+  document.querySelectorAll('.report-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.report-period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      reportPeriod = btn.dataset.period;
+      renderReports();
+    });
+  });
+  on('export-history-csv', 'click', exportHistoryCSV);
+}
+
+function renderReports() {
+  // Only render if the Reports tab panel exists (avoids errors on non-admin pages)
+  const container = $('tab-reports'); if (!container) return;
+
+  const filtered = filterSalesByPeriod(allSales, reportPeriod);
+
+  // Summary stats
+  const revenue = filtered.reduce((s, sale) => s + (Number(sale.total) || 0), 0);
+  const txns    = filtered.length;
+  const avg     = txns ? Math.round(revenue / txns) : 0;
+  setText('report-revenue', `\u20A6${revenue.toLocaleString()}`);
+  setText('report-txns',    txns.toString());
+  setText('report-avg',     `\u20A6${avg.toLocaleString()}`);
+
+  // Top selling items by quantity
+  const itemMap = {};
+  filtered.forEach(sale => {
+    (sale.items || []).forEach(item => {
+      if (!itemMap[item.name]) itemMap[item.name] = { qty: 0, revenue: 0 };
+      itemMap[item.name].qty     += Number(item.qty)   || 0;
+      itemMap[item.name].revenue += Number(item.total) || 0;
+    });
+  });
+  const topItems = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);
+  const maxQty   = topItems[0]?.[1]?.qty || 1;
+  const topEl    = $('report-top-items');
+  if (topEl) {
+    topEl.innerHTML = !topItems.length
+      ? `<div style="color:var(--muted);text-align:center;padding:24px">No sales data for this period</div>`
+      : topItems.map(([name, d], i) => `
+          <div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:6px">
+              <span><span style="color:var(--muted)">${i + 1}.</span> ${clean(name)}</span>
+              <span style="color:var(--muted);font-size:0.7rem">${d.qty} sold &nbsp;\u00B7&nbsp; \u20A6${d.revenue.toLocaleString()}</span>
+            </div>
+            <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
+              <div style="width:${Math.round(d.qty / maxQty * 100)}%;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:4px;transition:width 0.4s"></div>
+            </div>
+          </div>`).join('');
+  }
+
+  // Revenue by cashier
+  const cashierMap = {};
+  filtered.forEach(sale => {
+    const name = sale.cashier || 'Unknown';
+    if (!cashierMap[name]) cashierMap[name] = { revenue: 0, txns: 0 };
+    cashierMap[name].revenue += Number(sale.total) || 0;
+    cashierMap[name].txns++;
+  });
+  const cashiers = Object.entries(cashierMap).sort((a, b) => b[1].revenue - a[1].revenue);
+  const maxRev   = cashiers[0]?.[1]?.revenue || 1;
+  const cashEl   = $('report-cashiers');
+  if (cashEl) {
+    cashEl.innerHTML = !cashiers.length
+      ? `<div style="color:var(--muted);text-align:center;padding:24px">No cashier data for this period</div>`
+      : cashiers.map(([name, d]) => `
+          <div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:6px">
+              <span style="color:var(--accent)">@${clean(name)}</span>
+              <span style="color:var(--muted);font-size:0.7rem">${d.txns} sale${d.txns !== 1 ? 's' : ''} &nbsp;\u00B7&nbsp; \u20A6${d.revenue.toLocaleString()}</span>
+            </div>
+            <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
+              <div style="width:${Math.round(d.revenue / maxRev * 100)}%;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:4px;transition:width 0.4s"></div>
+            </div>
+          </div>`).join('');
+  }
+}
+
+function exportHistoryCSV() {
+  const filtered = filterSalesByPeriod(allSales, reportPeriod);
+  if (!filtered.length) { showToast('No sales data to export.', 'info'); return; }
+  const sorted = [...filtered].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const header = ['Date', 'Time', 'Cashier', 'Customer', 'Items', 'Total (NGN)'];
+  const rows   = sorted.map(sale => {
+    const d     = new Date(sale.timestamp);
+    const items = (sale.items || []).map(i => `${i.name}(x${i.qty}@${i.price})`).join(' | ');
+    return [
+      d.toLocaleDateString('en-GB'),
+      d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      `"${(sale.cashier  || 'Admin').replace(/"/g, '""')}"`,
+      `"${(sale.customer || 'Walk-in').replace(/"/g, '""')}"`,
+      `"${items.replace(/"/g, '""')}"`,
+      Number(sale.total).toFixed(2)
+    ];
+  });
+  const csv  = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `stocksavvy-sales-${reportPeriod}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Sales history exported.', 'success');
+}
