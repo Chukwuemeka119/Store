@@ -25,11 +25,17 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="cashiers">Cashiers</button>
   <button class="tab-btn" data-tab="history">Sales History</button>
-  <button class="tab-btn" data-tab="business">Business Details</button>
+  <button class="tab-btn" data-tab="reports">📊 Reports</button>
+  <button class="tab-btn" data-tab="business">Business</button>
 </div>
 
-<!-- CASHIERS TAB -->
+<!-- ═══════════════════════════════════════════════════
+     CASHIERS TAB
+     Cashier password card is inside this tab panel.
+     Password fields: cashier-old-pass / cashier-new-pass
+════════════════════════════════════════════════════ -->
 <div class="tab-panel active" id="tab-cashiers">
+
   <div class="card" style="max-width:480px">
     <div class="section-label">Create New Cashier</div>
     <div class="field" style="margin-bottom:12px">
@@ -38,9 +44,9 @@
     </div>
     <div class="field" style="margin-bottom:20px">
       <label>Password</label>
-      <input id="cashier-pass" type="password" placeholder="••••••••"/>
+      <input id="cashier-pass" type="password" placeholder="Min. 4 characters"/>
     </div>
-    <button class="btn btn-primary" id="create-cashier-btn" style="width:100%">Create Cashier</button>
+    <button class="btn btn-primary" id="create-cashier-btn" style="width:100%">+ Create Cashier</button>
   </div>
 
   <div style="margin-top:28px">
@@ -54,30 +60,33 @@
       </table>
     </div>
   </div>
-</div>
 
-<!-- CASHIER PASSWORD CHANGE CARD -->
-<div class="card" style="max-width:480px;margin-top:20px;">
-  <div class="section-label">🔐 Change Cashier Password</div>
-  <div class="field">
-    <label>Select Cashier</label>
-    <select id="select-cashier-pass" style="width:100%">
-      <option value="">-- Choose Cashier --</option>
-    </select>
+  <!-- Cashier password change — uses renamed IDs to avoid conflicts -->
+  <div class="card" style="max-width:480px;margin-top:8px">
+    <div class="section-label">🔐 Change Cashier Password</div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Select Cashier</label>
+      <select id="select-cashier-pass" style="width:100%">
+        <option value="">-- Choose Cashier --</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Current Password</label>
+      <input id="cashier-old-pass" type="password" placeholder="Enter current password"/>
+    </div>
+    <div class="field" style="margin-bottom:20px">
+      <label>New Password</label>
+      <input id="cashier-new-pass" type="password" placeholder="Enter new password"/>
+    </div>
+    <button class="btn btn-danger" id="btn-change-pass" style="width:100%">Update Cashier Password</button>
+    <div id="pass-result" style="margin-top:10px;font-size:0.8rem;min-height:20px"></div>
   </div>
-  <div class="field">
-    <label>Current Password</label>
-    <input id="old-pass" type="password" placeholder="Enter current password"/>
-  </div>
-  <div class="field">
-    <label>New Password</label>
-    <input id="new-pass" type="password" placeholder="Enter new password"/>
-  </div>
-  <button class="btn btn-danger" id="btn-change-pass" style="width:100%;margin-top:10px;">Update Password</button>
-  <div id="pass-result" style="margin-top:10px;font-size:0.8rem;"></div>
-</div>
 
-<!-- HISTORY TAB -->
+</div><!-- end #tab-cashiers -->
+
+<!-- ═══════════════════════════════════════════════════
+     HISTORY TAB
+════════════════════════════════════════════════════ -->
 <div class="tab-panel" id="tab-history">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
     <div class="tab-bar" style="margin-bottom:0">
@@ -92,7 +101,59 @@
   </div>
 </div>
 
-<!-- BUSINESS TAB -->
+<!-- ═══════════════════════════════════════════════════
+     REPORTS TAB — NEW FEATURE
+     Revenue analytics: summary cards, top items, cashier breakdown, CSV export
+════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-reports">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div class="tab-bar" style="margin-bottom:0">
+      <button class="report-period-btn active" data-period="daily">Today</button>
+      <button class="report-period-btn" data-period="weekly">This Week</button>
+      <button class="report-period-btn" data-period="monthly">This Month</button>
+    </div>
+    <button class="btn btn-primary" id="export-history-csv">⬇ Export CSV</button>
+  </div>
+
+  <!-- Summary stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+    <div class="card" style="margin-bottom:0;text-align:center;padding:20px 16px">
+      <div class="section-label" style="margin-bottom:8px">Revenue</div>
+      <div id="report-revenue" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent3)">₦0</div>
+    </div>
+    <div class="card" style="margin-bottom:0;text-align:center;padding:20px 16px">
+      <div class="section-label" style="margin-bottom:8px">Transactions</div>
+      <div id="report-txns" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent)">0</div>
+    </div>
+    <div class="card" style="margin-bottom:0;text-align:center;padding:20px 16px">
+      <div class="section-label" style="margin-bottom:8px">Avg. Sale</div>
+      <div id="report-avg" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent2)">₦0</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <!-- Top 5 selling items -->
+    <div class="card" style="margin-bottom:0">
+      <div class="section-label">🏆 Top Selling Items</div>
+      <div id="report-top-items">
+        <div style="color:var(--muted);text-align:center;padding:24px">No data yet</div>
+      </div>
+    </div>
+    <!-- Revenue by cashier -->
+    <div class="card" style="margin-bottom:0">
+      <div class="section-label">👤 Revenue by Cashier</div>
+      <div id="report-cashiers">
+        <div style="color:var(--muted);text-align:center;padding:24px">No data yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     BUSINESS TAB
+     FIX: Admin password fields (current-pass, new-pass, confirm-pass) kept here only
+          — no longer duplicated anywhere else in this file
+════════════════════════════════════════════════════ -->
 <div class="tab-panel" id="tab-business">
   <div class="card" style="max-width:480px">
     <div class="section-label">Business Details</div>
@@ -125,7 +186,7 @@
       <label>Confirm New Password</label>
       <input id="confirm-pass" type="password" placeholder="••••••••"/>
     </div>
-    <button class="btn btn-danger" id="change-pass-btn" style="width:100%">Change Password</button>
+    <button class="btn btn-danger" id="change-pass-btn" style="width:100%">Change Admin Password</button>
   </div>
 </div>
 

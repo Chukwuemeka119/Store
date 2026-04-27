@@ -2,31 +2,26 @@
   "rules": {
     "businesses": {
       "$bid": {
+        ".read": true,
+        ".write": true,
         "config": {
-          "active": { ".read": true, ".write": false },
-          "adminPassword": { ".read": false, ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true" },
-          "lastPaymentDate": { ".read": true, ".write": true },
-          "createdAt": { ".read": true, ".write": false }
+          ".read": true,
+          ".write": true,
+          "adminPassword": {
+            ".read": false,
+            ".write": true
+          }
         },
-        "business": {
-          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
-        },
-        "cashiers": {
-          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
-        },
+        "business": { ".read": true, ".write": true },
+        "cashiers": { ".read": true, ".write": true },
         "inventory": {
-          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true",
+          ".read": true,
+          ".write": true,
           "$itemId": {
             ".validate": "newData.hasChildren(['name','price','qty']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && newData.child('qty').isNumber() && newData.child('qty').val() >= 0"
           }
         },
-        "sales": {
-          ".read": "root.child('businesses').child($bid).child('config').child('active').val() === true",
-          ".write": "root.child('businesses').child($bid).child('config').child('active').val() === true"
-        }
+        "sales": { ".read": true, ".write": true }
       }
     },
     "directory": {
@@ -35,7 +30,15 @@
     },
     "analytics": {
       ".read": false,
-      ".write": false
+      ".write": true
+    },
+    "ownerConfig": {
+      ".read": false,
+      ".write": false,
+      "password": {
+        ".read": false,
+        ".write": true
+      }
     }
   }
 }
