@@ -334,14 +334,14 @@ $('create-btn').addEventListener('click', async () => {
 function getExpiry(payDateStr) {
   const d = new Date(payDateStr);
   const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0); // last day of payment month
-  const expiry  = new Date(lastDay.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const expiry  = new Date(lastDay.getTime() + (30 + 3) * 24 * 60 * 60 * 1000);
   return expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function getDaysLeft(lastPaymentDateStr) {
   const lastPaid = new Date(lastPaymentDateStr);
   const lastDay  = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, 0);
-  const expiry   = new Date(lastDay.getTime() 30 + 3 * 24 * 60 * 60 * 1000);
+  const expiry   = new Date(lastDay.getTime() (30 + 3) * 24 * 60 * 60 * 1000);
   return Math.ceil((expiry - new Date()) / 86400000);
 }
 
